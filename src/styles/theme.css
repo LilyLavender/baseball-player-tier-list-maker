@@ -1,5 +1,5 @@
 /*
-  Theme tokens. Default (and only implemented for now) theme is "Scorecard" — the site's
+  Theme tokens. Default (and only implemented for now) theme is "Scorecard", the site's
   signature look. Classic Light/Dark themes are added in a later build step via
   [data-theme="light"] / [data-theme="dark"] overrides on :root.
 */
