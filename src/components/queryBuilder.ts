@@ -1,5 +1,8 @@
 import type { Team } from "../types/mlb";
+import { teamLogoUrl } from "../types/mlb";
 import { STAT_CATEGORIES } from "../data/statCategories";
+import { bindComboBox, getComboBoxValue, renderComboBox } from "./comboBox";
+import type { ComboBoxOption } from "./comboBox";
 
 export interface QueryBuilderCallbacks {
   onApplyTeam: (teamId: number, season: number) => void;
@@ -7,31 +10,38 @@ export interface QueryBuilderCallbacks {
 }
 
 const CURRENT_YEAR = new Date().getFullYear();
+const ALL_LIMIT = 1000;
+
+function teamOptions(teams: Team[]): ComboBoxOption[] {
+  return teams
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((team) => ({ value: String(team.id), label: team.name, iconUrl: teamLogoUrl(team.id) }));
+}
+
+function statOptions(): ComboBoxOption[] {
+  return STAT_CATEGORIES.map((stat) => ({
+    value: stat.id,
+    label: `${stat.label} (${stat.group})`,
+  }));
+}
 
 export function renderQueryBuilder(
   teams: Team[],
   selectedTeamQuery?: { teamId: number; season: number },
 ): string {
-  const teamOptions = teams
-    .slice()
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map(
-      (team) =>
-        `<option value="${team.id}" ${team.id === selectedTeamQuery?.teamId ? "selected" : ""}>${team.name}</option>`,
-    )
-    .join("");
-
   const teamSeason = selectedTeamQuery?.season ?? CURRENT_YEAR;
-
-  const statOptions = STAT_CATEGORIES.map(
-    (stat) => `<option value="${stat.id}">${stat.label} (${stat.group})</option>`,
-  ).join("");
 
   return `
     <h2 class="query-builder__heading">By team &amp; season</h2>
     <label class="query-builder__field">
       Team
-      <select id="qb-team">${teamOptions}</select>
+      ${renderComboBox(
+        "qb-team",
+        teamOptions(teams),
+        selectedTeamQuery ? String(selectedTeamQuery.teamId) : undefined,
+        "Search teams…",
+      )}
     </label>
     <label class="query-builder__field">
       Season
@@ -42,7 +52,7 @@ export function renderQueryBuilder(
     <h2 class="query-builder__heading query-builder__heading--stat">By stat leaders</h2>
     <label class="query-builder__field">
       Stat
-      <select id="qb-stat">${statOptions}</select>
+      ${renderComboBox("qb-stat", statOptions(), statOptions()[0]?.value, "Search stats…")}
     </label>
     <label class="query-builder__field">
       Season
@@ -50,31 +60,38 @@ export function renderQueryBuilder(
     </label>
     <label class="query-builder__field">
       Top N
-      <input id="qb-stat-limit" type="number" value="25" min="1" max="100" />
+      <select id="qb-stat-limit">
+        <option value="10">Top 10</option>
+        <option value="25" selected>Top 25</option>
+        <option value="50">Top 50</option>
+        <option value="100">Top 100</option>
+        <option value="${ALL_LIMIT}">All</option>
+      </select>
     </label>
     <button id="qb-stat-apply" type="button">Apply</button>
   `;
 }
 
-export function bindQueryBuilder(callbacks: QueryBuilderCallbacks): void {
-  const teamSelect = document.querySelector<HTMLSelectElement>("#qb-team")!;
+export function bindQueryBuilder(teams: Team[], callbacks: QueryBuilderCallbacks): void {
+  bindComboBox("qb-team", teamOptions(teams), () => {});
+  bindComboBox("qb-stat", statOptions(), () => {});
+
   const seasonInput = document.querySelector<HTMLInputElement>("#qb-season")!;
   const applyButton = document.querySelector<HTMLButtonElement>("#qb-apply")!;
 
   applyButton.addEventListener("click", () => {
-    callbacks.onApplyTeam(Number(teamSelect.value), Number(seasonInput.value));
+    const teamId = Number(getComboBoxValue("qb-team"));
+    if (!teamId) return;
+    callbacks.onApplyTeam(teamId, Number(seasonInput.value));
   });
 
-  const statSelect = document.querySelector<HTMLSelectElement>("#qb-stat")!;
   const statSeasonInput = document.querySelector<HTMLInputElement>("#qb-stat-season")!;
-  const statLimitInput = document.querySelector<HTMLInputElement>("#qb-stat-limit")!;
+  const statLimitSelect = document.querySelector<HTMLSelectElement>("#qb-stat-limit")!;
   const statApplyButton = document.querySelector<HTMLButtonElement>("#qb-stat-apply")!;
 
   statApplyButton.addEventListener("click", () => {
-    callbacks.onApplyStat(
-      statSelect.value,
-      Number(statSeasonInput.value),
-      Number(statLimitInput.value),
-    );
+    const statId = getComboBoxValue("qb-stat");
+    if (!statId) return;
+    callbacks.onApplyStat(statId, Number(statSeasonInput.value), Number(statLimitSelect.value));
   });
 }

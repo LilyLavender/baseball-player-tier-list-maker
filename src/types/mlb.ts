@@ -17,3 +17,7 @@ export interface PoolPlayer {
 export function headshotUrl(playerId: number): string {
   return `https://img.mlbstatic.com/mlb-photos/image/upload/w_180,q_100/v1/people/${playerId}/headshot/67/current`;
 }
+
+export function teamLogoUrl(teamId: number): string {
+  return `https://www.mlbstatic.com/team-logos/${teamId}.svg`;
+}

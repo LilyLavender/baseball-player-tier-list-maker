@@ -13,8 +13,8 @@ export function renderPlayerCard(player: PoolPlayer): string {
         src="${headshotUrl(player.id)}"
         alt=""
         loading="lazy"
-        width="88"
-        height="104"
+        width="112"
+        height="128"
       />
       ${statBadge}
       <span class="player-card__name">${player.fullName}</span>

@@ -11,3 +11,7 @@ export const DEFAULT_TIERS: TierDefinition[] = [
   { label: "D", color: "#4a5568" },
   { label: "F", color: "#14213d" },
 ];
+
+export function cloneDefaultTiers(): TierDefinition[] {
+  return DEFAULT_TIERS.map((tier) => ({ ...tier }));
+}

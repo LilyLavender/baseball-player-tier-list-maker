@@ -1,5 +1,6 @@
 import type { PoolPlayer } from "../types/mlb";
 import type { ActiveQuery } from "./activeQuery";
+import type { TierDefinition } from "../data/tiers";
 
 const LISTS_KEY = "mlb-tier-list:saved";
 const LAST_OPENED_KEY = "mlb-tier-list:last-opened";
@@ -10,6 +11,7 @@ export interface SavedList {
   createdAt: number;
   updatedAt: number;
   query: ActiveQuery | null;
+  tiers: TierDefinition[];
   players: PoolPlayer[];
   poolPlayerIds: number[];
   tierPlayerIds: number[][];
@@ -41,6 +43,7 @@ export interface SaveListInput {
   id: string | null;
   title: string;
   query: ActiveQuery | null;
+  tiers: TierDefinition[];
   players: PoolPlayer[];
   poolPlayerIds: number[];
   tierPlayerIds: number[][];
@@ -55,6 +58,7 @@ export function upsertSavedList(input: SaveListInput): SavedList {
     if (existing) {
       existing.title = input.title;
       existing.query = input.query;
+      existing.tiers = input.tiers;
       existing.players = input.players;
       existing.poolPlayerIds = input.poolPlayerIds;
       existing.tierPlayerIds = input.tierPlayerIds;
@@ -70,6 +74,7 @@ export function upsertSavedList(input: SaveListInput): SavedList {
     createdAt: now,
     updatedAt: now,
     query: input.query,
+    tiers: input.tiers,
     players: input.players,
     poolPlayerIds: input.poolPlayerIds,
     tierPlayerIds: input.tierPlayerIds,

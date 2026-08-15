@@ -1,25 +1,57 @@
 import Sortable from "sortablejs";
-import { tierDropZoneIds } from "../components/tierBoard";
 
 const SHARED_GROUP = "players";
 
 let poolSortable: Sortable | null = null;
-let trashSortable: Sortable | null = null;
+let removeSortable: Sortable | null = null;
 const tierSortables: Sortable[] = [];
+
+function removeZoneElement(): HTMLElement | null {
+  return document.getElementById("remove-zone");
+}
+
+function isPointerOverRemoveZone(x: number, y: number): boolean {
+  const zone = removeZoneElement();
+  if (!zone) return false;
+  const rect = zone.getBoundingClientRect();
+  return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+}
+
+function pointerMoveHandler(event: PointerEvent): void {
+  const zone = removeZoneElement();
+  if (!zone) return;
+  zone.classList.toggle("remove-zone--active", isPointerOverRemoveZone(event.clientX, event.clientY));
+}
+
+function showRemoveZone(): void {
+  removeZoneElement()?.classList.add("remove-zone--visible");
+  document.addEventListener("pointermove", pointerMoveHandler);
+}
+
+function hideRemoveZone(): void {
+  const zone = removeZoneElement();
+  zone?.classList.remove("remove-zone--visible", "remove-zone--active");
+  document.removeEventListener("pointermove", pointerMoveHandler);
+}
 
 function createSortable(element: HTMLElement): Sortable {
   return Sortable.create(element, {
     group: SHARED_GROUP,
     animation: 150,
     ghostClass: "player-card--ghost",
+    forceFallback: true,
+    fallbackOnBody: true,
+    fallbackClass: "player-card--dragging",
+    onStart: showRemoveZone,
+    onEnd: hideRemoveZone,
   });
 }
 
-export function initTierSortables(): void {
+export function initTierSortables(tierDropZoneIds: string[]): void {
   tierSortables.forEach((instance) => instance.destroy());
   tierSortables.length = 0;
 
-  for (const id of tierDropZoneIds()) {
+  for (const id of tierDropZoneIds) {
     const element = document.getElementById(id);
     if (element) {
       tierSortables.push(createSortable(element));
@@ -33,15 +65,15 @@ export function initPoolSortable(): void {
   poolSortable = element ? createSortable(element) : null;
 }
 
-export function initTrashSortable(): void {
-  trashSortable?.destroy();
-  const element = document.getElementById("trash-zone");
+export function initRemoveZoneSortable(): void {
+  removeSortable?.destroy();
+  const element = removeZoneElement();
   if (!element) {
-    trashSortable = null;
+    removeSortable = null;
     return;
   }
 
-  trashSortable = Sortable.create(element, {
+  removeSortable = Sortable.create(element, {
     group: SHARED_GROUP,
     animation: 150,
     ghostClass: "player-card--ghost",

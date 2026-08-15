@@ -12,6 +12,6 @@ export function collectPoolPlayerIds(): number[] {
   return playerIdsIn("pool-cards");
 }
 
-export function collectTierPlayerIds(): number[][] {
-  return tierDropZoneIds().map(playerIdsIn);
+export function collectTierPlayerIds(tierCount: number): number[][] {
+  return tierDropZoneIds(tierCount).map(playerIdsIn);
 }

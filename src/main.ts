@@ -2,8 +2,12 @@ import "./styles/base.css";
 import { fetchRoster, fetchStatLeaders, fetchTeams } from "./api/mlbApi";
 import { bindQueryBuilder, renderQueryBuilder } from "./components/queryBuilder";
 import { renderPlayerPool } from "./components/playerPool";
-import { renderTierBoard } from "./components/tierBoard";
-import { initPoolSortable, initTierSortables, initTrashSortable } from "./dnd/dragAndDrop";
+import { bindTierBoard, renderTierBoard, tierDropZoneIds } from "./components/tierBoard";
+import {
+  initPoolSortable,
+  initRemoveZoneSortable,
+  initTierSortables,
+} from "./dnd/dragAndDrop";
 import { collectPoolPlayerIds, collectTierPlayerIds } from "./storage/collectBoardState";
 import type { ActiveQuery } from "./storage/activeQuery";
 import {
@@ -20,6 +24,8 @@ import { applyTheme, loadThemePref, saveThemePref } from "./storage/themePref";
 import type { ThemeName } from "./storage/themePref";
 import { bindHistoryPanel, renderHistoryPanel } from "./components/historyPanel";
 import { STAT_CATEGORIES } from "./data/statCategories";
+import { cloneDefaultTiers } from "./data/tiers";
+import type { TierDefinition } from "./data/tiers";
 import { describeQuery } from "./utils/queryLabel";
 import type { PoolPlayer, Team } from "./types/mlb";
 
@@ -29,12 +35,76 @@ const app = document.querySelector<HTMLDivElement>("#app")!;
 const playersById = new Map<number, PoolPlayer>();
 let currentQuery: ActiveQuery | null = null;
 let currentListId: string | null = null;
+let currentTiers: TierDefinition[] = cloneDefaultTiers();
 let teams: Team[] = [];
 
 function rememberPlayers(players: PoolPlayer[]): void {
   for (const player of players) {
     playersById.set(player.id, player);
   }
+}
+
+function playersFromIds(ids: number[]): PoolPlayer[] {
+  return ids.map((id) => playersById.get(id)).filter((p): p is PoolPlayer => p !== undefined);
+}
+
+function bindTierBoardCallbacks(): void {
+  bindTierBoard({
+    onRename: (index, label) => {
+      currentTiers[index].label = label;
+    },
+    onRecolor: (index, color) => {
+      currentTiers[index].color = color;
+      const row = document.querySelectorAll<HTMLElement>(".tier-row")[index];
+      row?.style.setProperty("--tier-color", color);
+    },
+    onMoveUp: (index) => {
+      if (index === 0) return;
+      const poolIds = collectPoolPlayerIds();
+      const tierIds = collectTierPlayerIds(currentTiers.length);
+      [currentTiers[index - 1], currentTiers[index]] = [currentTiers[index], currentTiers[index - 1]];
+      [tierIds[index - 1], tierIds[index]] = [tierIds[index], tierIds[index - 1]];
+      rerenderBoardAndPool(tierIds.map(playersFromIds), playersFromIds(poolIds));
+    },
+    onMoveDown: (index) => {
+      if (index === currentTiers.length - 1) return;
+      const poolIds = collectPoolPlayerIds();
+      const tierIds = collectTierPlayerIds(currentTiers.length);
+      [currentTiers[index + 1], currentTiers[index]] = [currentTiers[index], currentTiers[index + 1]];
+      [tierIds[index + 1], tierIds[index]] = [tierIds[index], tierIds[index + 1]];
+      rerenderBoardAndPool(tierIds.map(playersFromIds), playersFromIds(poolIds));
+    },
+    onDelete: (index) => {
+      if (currentTiers.length <= 1) return;
+      const poolIds = collectPoolPlayerIds();
+      const tierIds = collectTierPlayerIds(currentTiers.length);
+      const orphaned = tierIds[index] ?? [];
+      currentTiers.splice(index, 1);
+      tierIds.splice(index, 1);
+      rerenderBoardAndPool(tierIds.map(playersFromIds), playersFromIds([...poolIds, ...orphaned]));
+    },
+    onAddTier: () => {
+      const poolIds = collectPoolPlayerIds();
+      const tierIds = collectTierPlayerIds(currentTiers.length);
+      currentTiers.push({ label: "New", color: "#4a5568" });
+      tierIds.push([]);
+      rerenderBoardAndPool(tierIds.map(playersFromIds), playersFromIds(poolIds));
+    },
+  });
+}
+
+function rerenderBoardAndPool(tierPlayers: PoolPlayer[][], poolPlayers: PoolPlayer[]): void {
+  const boardWrap = document.querySelector<HTMLDivElement>(".board-wrap")!;
+  boardWrap.innerHTML = `
+    ${renderTierBoard(currentTiers, tierPlayers)}
+    <section class="pool">
+      <h2 class="pool__heading">Unranked pool</h2>
+      <div id="pool-content">${renderPlayerPool(poolPlayers)}</div>
+    </section>
+  `;
+  initTierSortables(tierDropZoneIds(currentTiers.length));
+  initPoolSortable();
+  bindTierBoardCallbacks();
 }
 
 function openHistoryPanel(): void {
@@ -96,18 +166,24 @@ function renderShell(
     <div class="layout">
       <aside class="query-builder">${queryBuilderContent}</aside>
       <div class="board-wrap">
-        ${renderTierBoard(tierPlayers)}
+        ${renderTierBoard(currentTiers, tierPlayers)}
         <section class="pool">
           <h2 class="pool__heading">Unranked pool</h2>
           <div id="pool-content">${poolContent}</div>
         </section>
       </div>
     </div>
-    <div id="trash-zone" class="trash-zone">Drag here to remove</div>
+    <div id="remove-zone" class="remove-zone">
+      <div class="remove-zone__content">
+        <span class="remove-zone__icon" aria-hidden="true">🗑</span>
+        <span>Remove player</span>
+      </div>
+    </div>
   `;
-  initTierSortables();
+  initTierSortables(tierDropZoneIds(currentTiers.length));
   initPoolSortable();
-  initTrashSortable();
+  initRemoveZoneSortable();
+  bindTierBoardCallbacks();
 
   document.querySelector<HTMLButtonElement>("#save-list")!.addEventListener("click", () => {
     let title = currentListId ? getSavedList(currentListId)?.title : undefined;
@@ -122,9 +198,10 @@ function renderShell(
       id: currentListId,
       title,
       query: currentQuery,
+      tiers: currentTiers,
       players: Array.from(playersById.values()),
       poolPlayerIds: collectPoolPlayerIds(),
-      tierPlayerIds: collectTierPlayerIds(),
+      tierPlayerIds: collectTierPlayerIds(currentTiers.length),
     });
     currentListId = saved.id;
     setLastOpenedId(saved.id);
@@ -133,6 +210,7 @@ function renderShell(
   document.querySelector<HTMLButtonElement>("#new-list")!.addEventListener("click", () => {
     currentListId = null;
     currentQuery = null;
+    currentTiers = cloneDefaultTiers();
     setLastOpenedId(null);
     renderShell(renderQueryBuilder(teams), `<p class="pool__placeholder">Players will appear here once a query runs.</p>`);
     bindQueryBuilderCallbacks();
@@ -205,7 +283,7 @@ async function loadStatPool(statCategoryId: string, season: number, limit: numbe
 }
 
 function bindQueryBuilderCallbacks(): void {
-  bindQueryBuilder({
+  bindQueryBuilder(teams, {
     onApplyTeam: (teamId, season) => {
       void loadTeamPool(teamId, season);
     },
@@ -222,14 +300,11 @@ async function openSavedList(id: string): Promise<void> {
   rememberPlayers(list.players);
   currentQuery = list.query;
   currentListId = list.id;
+  currentTiers = list.tiers?.length ? list.tiers.map((t) => ({ ...t })) : cloneDefaultTiers();
   setLastOpenedId(list.id);
 
-  const poolPlayers = list.poolPlayerIds
-    .map((pid) => playersById.get(pid))
-    .filter((p): p is PoolPlayer => p !== undefined);
-  const tierPlayers = list.tierPlayerIds.map((ids) =>
-    ids.map((pid) => playersById.get(pid)).filter((p): p is PoolPlayer => p !== undefined),
-  );
+  const poolPlayers = playersFromIds(list.poolPlayerIds);
+  const tierPlayers = list.tierPlayerIds.map(playersFromIds);
 
   const selectedTeamQuery = list.query?.kind === "team" ? list.query : undefined;
 
