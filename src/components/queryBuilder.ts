@@ -104,7 +104,7 @@ export function renderQueryBuilder(
       <select id="qb-autotier-strategy">
         <option value="interval">Fixed interval</option>
         <option value="per-unit">One tier per value</option>
-        <option value="auto-grouping">Auto S-F grouping</option>
+        <option value="auto-grouping">Auto S-F grouping (natural breaks)</option>
         <option value="thresholds">Custom thresholds</option>
       </select>
     </label>

@@ -72,15 +72,68 @@ function bucketByUnit(entries: ValuedEntry[], order: "asc" | "desc"): Bucket[] {
 const SF_LABELS = ["S", "A", "B", "C", "D", "F"];
 const SF_PLUS_MINUS_LABELS = SF_LABELS.flatMap((letter) => [`${letter}+`, letter, `${letter}-`]);
 
+/**
+ * Exact 1D k-means (equivalent to Jenks natural breaks): partitions `entries` into up to
+ * `maxGroups` contiguous runs that minimize within-group variance, instead of forcing equal
+ * population per group. `entries` must already be sorted (either direction is fine, since
+ * variance doesn't care about direction as long as it's monotonic).
+ */
+function naturalBreaks(entries: ValuedEntry[], maxGroups: number): ValuedEntry[][] {
+  const n = entries.length;
+  const distinctCount = new Set(entries.map((e) => e.value)).size;
+  const k = Math.max(1, Math.min(maxGroups, distinctCount));
+  if (k >= n) return entries.map((entry) => [entry]);
+
+  const prefixSum = new Array(n + 1).fill(0);
+  const prefixSumSq = new Array(n + 1).fill(0);
+  for (let i = 0; i < n; i++) {
+    prefixSum[i + 1] = prefixSum[i] + entries[i].value;
+    prefixSumSq[i + 1] = prefixSumSq[i] + entries[i].value * entries[i].value;
+  }
+  function variance(i: number, j: number): number {
+    const count = j - i + 1;
+    const sum = prefixSum[j + 1] - prefixSum[i];
+    const sumSq = prefixSumSq[j + 1] - prefixSumSq[i];
+    return sumSq - (sum * sum) / count;
+  }
+
+  const dp: number[][] = Array.from({ length: k + 1 }, () => new Array(n).fill(Infinity));
+  const split: number[][] = Array.from({ length: k + 1 }, () => new Array(n).fill(0));
+
+  for (let j = 0; j < n; j++) {
+    dp[1][j] = variance(0, j);
+  }
+
+  for (let c = 2; c <= k; c++) {
+    for (let j = c - 1; j < n; j++) {
+      let best = Infinity;
+      let bestI = c - 1;
+      for (let i = c - 1; i <= j; i++) {
+        const cost = dp[c - 1][i - 1] + variance(i, j);
+        if (cost < best) {
+          best = cost;
+          bestI = i;
+        }
+      }
+      dp[c][j] = best;
+      split[c][j] = bestI;
+    }
+  }
+
+  const groups: ValuedEntry[][] = [];
+  let end = n - 1;
+  for (let c = k; c >= 1; c--) {
+    const start = c === 1 ? 0 : split[c][end];
+    groups.unshift(entries.slice(start, end + 1));
+    end = start - 1;
+  }
+  return groups;
+}
+
 function bucketByAutoGrouping(entries: ValuedEntry[], scheme: AutoTierScheme): Bucket[] {
   const labels = scheme === "sf-plus-minus" ? SF_PLUS_MINUS_LABELS : SF_LABELS;
-  const perGroup = Math.ceil(entries.length / labels.length);
-  const buckets: Bucket[] = [];
-  for (let i = 0; i < labels.length; i++) {
-    const slice = entries.slice(i * perGroup, (i + 1) * perGroup);
-    if (slice.length > 0) buckets.push({ label: labels[i], entries: slice });
-  }
-  return buckets;
+  const groups = naturalBreaks(entries, labels.length);
+  return groups.map((group, index) => ({ label: labels[index], entries: group }));
 }
 
 function bucketByThresholds(
