@@ -312,13 +312,18 @@ async function loadStatPool(params: StatQueryParams): Promise<void> {
   const stat = STAT_CATEGORIES.find((s) => s.id === params.statCategoryId);
   if (!stat) return;
 
+  const season = params.scope === "career" ? undefined : params.season;
+
   currentQuery = {
     kind: "stat",
     statCategoryId: params.statCategoryId,
-    season: params.season,
+    scope: params.scope,
+    season,
     limit: params.limit,
   };
-  setPoolContent(`<p class="pool__placeholder">Loading leaders…</p>`);
+  setPoolContent(
+    `<p class="pool__placeholder">${params.scope === "career" ? "Loading career leaders…" : "Loading leaders…"}</p>`,
+  );
 
   let players: PoolPlayer[] = [];
   try {
@@ -328,7 +333,7 @@ async function loadStatPool(params: StatQueryParams): Promise<void> {
       statGroup: stat.group,
       order: stat.order,
       statLabel: stat.label,
-      season: params.season,
+      season,
       limit: params.limit,
       qualified: params.qualified,
       minValue: params.minValue,

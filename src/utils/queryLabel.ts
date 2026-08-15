@@ -12,5 +12,6 @@ export function describeQuery(query: ActiveQuery | null, teams: Team[]): string 
   }
 
   const stat = STAT_CATEGORIES.find((s) => s.id === query.statCategoryId);
-  return `${query.season} ${stat?.label ?? "Stat"} Leaders`;
+  const scopeLabel = query.scope === "career" ? "Career" : String(query.season);
+  return `${scopeLabel} ${stat?.label ?? "Stat"} Leaders`;
 }

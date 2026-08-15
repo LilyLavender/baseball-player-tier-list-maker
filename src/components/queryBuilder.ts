@@ -8,6 +8,7 @@ import type { AutoTierStrategy } from "../tiering/autoTier";
 
 export interface StatQueryParams {
   statCategoryId: string;
+  scope: "season" | "career";
   season: number;
   limit: number;
   qualified: boolean;
@@ -70,6 +71,13 @@ export function renderQueryBuilder(
       ${renderComboBox("qb-stat", statOptions(), statOptions()[0]?.value, "Search stats…")}
     </label>
     <label class="query-builder__field">
+      Scope
+      <select id="qb-stat-scope">
+        <option value="season" selected>Single season</option>
+        <option value="career">Career (all-time)</option>
+      </select>
+    </label>
+    <label class="query-builder__field" id="qb-stat-season-field">
       Season
       <input id="qb-stat-season" type="number" value="${CURRENT_YEAR}" min="1901" max="${CURRENT_YEAR}" />
     </label>
@@ -168,6 +176,8 @@ export function bindQueryBuilder(teams: Team[], callbacks: QueryBuilderCallbacks
     callbacks.onApplyTeam(teamId, Number(seasonInput.value));
   });
 
+  const statScopeSelect = document.querySelector<HTMLSelectElement>("#qb-stat-scope")!;
+  const statSeasonField = document.querySelector<HTMLLabelElement>("#qb-stat-season-field")!;
   const statSeasonInput = document.querySelector<HTMLInputElement>("#qb-stat-season")!;
   const statLimitSelect = document.querySelector<HTMLSelectElement>("#qb-stat-limit")!;
   const statMinValueInput = document.querySelector<HTMLInputElement>("#qb-stat-min-value")!;
@@ -175,11 +185,16 @@ export function bindQueryBuilder(teams: Team[], callbacks: QueryBuilderCallbacks
   const statMinQualifierInput = document.querySelector<HTMLInputElement>("#qb-stat-min-qualifier")!;
   const statApplyButton = document.querySelector<HTMLButtonElement>("#qb-stat-apply")!;
 
+  statScopeSelect.addEventListener("change", () => {
+    statSeasonField.hidden = statScopeSelect.value === "career";
+  });
+
   statApplyButton.addEventListener("click", () => {
     const statId = getComboBoxValue("qb-stat");
     if (!statId) return;
     callbacks.onApplyStat({
       statCategoryId: statId,
+      scope: statScopeSelect.value === "career" ? "career" : "season",
       season: Number(statSeasonInput.value),
       limit: Number(statLimitSelect.value),
       qualified: statQualifiedCheckbox.checked,

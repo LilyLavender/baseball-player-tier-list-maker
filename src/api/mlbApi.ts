@@ -79,7 +79,8 @@ export interface StatLeadersQuery {
   statGroup: "hitting" | "pitching";
   order: "asc" | "desc";
   statLabel: string;
-  season: number;
+  /** Single-season query when set; omit for a career-aggregate query. */
+  season?: number;
   limit: number;
   /** Use MLB's official qualified-player minimum (PA/IP threshold). */
   qualified: boolean;
@@ -90,10 +91,22 @@ export interface StatLeadersQuery {
   minQualifierValue?: number;
 }
 
+/**
+ * When filtering by a minimum, fetch a much larger batch first so the limit doesn't truncate
+ * qualifiers before filtering. The API caps results at 1000 regardless of what's requested, so
+ * that's the effective ceiling.
+ */
+const FILTERED_FETCH_SIZE = 1000;
+
 export async function fetchStatLeaders(query: StatLeadersQuery): Promise<PoolPlayer[]> {
   const qualifierParam = query.qualified ? "&playerPool=Qualified" : "";
+  const statsType = query.season !== undefined ? "season" : "career";
+  const seasonParam = query.season !== undefined ? `&season=${query.season}` : "";
+  const hasMinFilter = query.minValue !== undefined || query.minQualifierValue !== undefined;
+  const fetchLimit = hasMinFilter ? Math.max(query.limit, FILTERED_FETCH_SIZE) : query.limit;
+
   const data = await getJson<StatSplitsResponse>(
-    `/stats?stats=season&group=${query.statGroup}&season=${query.season}&sportId=1&limit=${query.limit}` +
+    `/stats?stats=${statsType}&group=${query.statGroup}${seasonParam}&sportId=1&limit=${fetchLimit}` +
       `&sortStat=${query.sortStat}&order=${query.order}${qualifierParam}`,
   );
   let splits = data.stats[0]?.splits ?? [];
@@ -107,6 +120,8 @@ export async function fetchStatLeaders(query: StatLeadersQuery): Promise<PoolPla
     const min = query.minQualifierValue;
     splits = splits.filter((entry) => parseFloat(String(entry.stat[key])) >= min);
   }
+
+  splits = splits.slice(0, query.limit);
 
   return splits.map((entry) => ({
     id: entry.player.id,
