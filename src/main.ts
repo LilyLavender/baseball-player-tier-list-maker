@@ -5,23 +5,73 @@ import { renderPlayerPool } from "./components/playerPool";
 import { renderTierBoard } from "./components/tierBoard";
 import { initPoolSortable, initTierSortables, initTrashSortable } from "./dnd/dragAndDrop";
 import { collectPoolPlayerIds, collectTierPlayerIds } from "./storage/collectBoardState";
-import { loadActiveList, saveActiveList } from "./storage/activeList";
-import type { ActiveQuery } from "./storage/activeList";
+import type { ActiveQuery } from "./storage/activeQuery";
+import {
+  deleteSavedList,
+  duplicateSavedList,
+  getAllSavedLists,
+  getLastOpenedId,
+  getSavedList,
+  renameSavedList,
+  setLastOpenedId,
+  upsertSavedList,
+} from "./storage/savedLists";
 import { applyTheme, loadThemePref, saveThemePref } from "./storage/themePref";
 import type { ThemeName } from "./storage/themePref";
+import { bindHistoryPanel, renderHistoryPanel } from "./components/historyPanel";
 import { STAT_CATEGORIES } from "./data/statCategories";
-import type { PoolPlayer } from "./types/mlb";
+import { describeQuery } from "./utils/queryLabel";
+import type { PoolPlayer, Team } from "./types/mlb";
 
 applyTheme(loadThemePref());
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const playersById = new Map<number, PoolPlayer>();
 let currentQuery: ActiveQuery | null = null;
+let currentListId: string | null = null;
+let teams: Team[] = [];
 
 function rememberPlayers(players: PoolPlayer[]): void {
   for (const player of players) {
     playersById.set(player.id, player);
   }
+}
+
+function openHistoryPanel(): void {
+  document.body.insertAdjacentHTML("beforeend", renderHistoryPanel(getAllSavedLists()));
+  bindHistoryPanel({
+    onClose: closeHistoryPanel,
+    onOpen: (id) => {
+      closeHistoryPanel();
+      void openSavedList(id);
+    },
+    onRename: (id) => {
+      const list = getSavedList(id);
+      if (!list) return;
+      const title = window.prompt("Rename list", list.title);
+      if (title && title.trim()) {
+        renameSavedList(id, title.trim());
+      }
+      closeHistoryPanel();
+      openHistoryPanel();
+    },
+    onDuplicate: (id) => {
+      duplicateSavedList(id);
+      closeHistoryPanel();
+      openHistoryPanel();
+    },
+    onDelete: (id) => {
+      if (window.confirm("Delete this saved list?")) {
+        deleteSavedList(id);
+      }
+      closeHistoryPanel();
+      openHistoryPanel();
+    },
+  });
+}
+
+function closeHistoryPanel(): void {
+  document.querySelector("#history-overlay")?.remove();
 }
 
 function renderShell(
@@ -38,6 +88,8 @@ function renderShell(
           <option value="light">Classic Light</option>
           <option value="dark">Classic Dark</option>
         </select>
+        <button id="new-list" type="button" class="topbar__btn">New</button>
+        <button id="history-open" type="button" class="topbar__btn">History</button>
         <button id="save-list" type="button" class="topbar__save">Save</button>
       </div>
     </header>
@@ -58,12 +110,36 @@ function renderShell(
   initTrashSortable();
 
   document.querySelector<HTMLButtonElement>("#save-list")!.addEventListener("click", () => {
-    saveActiveList({
+    let title = currentListId ? getSavedList(currentListId)?.title : undefined;
+    if (!title) {
+      const suggestion = describeQuery(currentQuery, teams);
+      title = window.prompt("Name this tier list", suggestion) ?? undefined;
+      if (!title || !title.trim()) return;
+      title = title.trim();
+    }
+
+    const saved = upsertSavedList({
+      id: currentListId,
+      title,
       query: currentQuery,
       players: Array.from(playersById.values()),
       poolPlayerIds: collectPoolPlayerIds(),
       tierPlayerIds: collectTierPlayerIds(),
     });
+    currentListId = saved.id;
+    setLastOpenedId(saved.id);
+  });
+
+  document.querySelector<HTMLButtonElement>("#new-list")!.addEventListener("click", () => {
+    currentListId = null;
+    currentQuery = null;
+    setLastOpenedId(null);
+    renderShell(renderQueryBuilder(teams), `<p class="pool__placeholder">Players will appear here once a query runs.</p>`);
+    bindQueryBuilderCallbacks();
+  });
+
+  document.querySelector<HTMLButtonElement>("#history-open")!.addEventListener("click", () => {
+    openHistoryPanel();
   });
 
   const themeSelect = document.querySelector<HTMLSelectElement>("#theme-select")!;
@@ -128,33 +204,7 @@ async function loadStatPool(statCategoryId: string, season: number, limit: numbe
   setPoolContent(renderPlayerPool(players));
 }
 
-async function init(): Promise<void> {
-  renderShell(
-    `<h2 class="query-builder__heading">Build your pool</h2><p class="query-builder__placeholder">Loading teams…</p>`,
-    `<p class="pool__placeholder">Players will appear here once a query runs.</p>`,
-  );
-
-  const teams = await fetchTeams();
-  const saved = loadActiveList();
-
-  if (saved) {
-    rememberPlayers(saved.players);
-    currentQuery = saved.query;
-
-    const poolPlayers = saved.poolPlayerIds
-      .map((id) => playersById.get(id))
-      .filter((p): p is PoolPlayer => p !== undefined);
-    const tierPlayers = saved.tierPlayerIds.map((ids) =>
-      ids.map((id) => playersById.get(id)).filter((p): p is PoolPlayer => p !== undefined),
-    );
-
-    const selectedTeamQuery = saved.query?.kind === "team" ? saved.query : undefined;
-
-    renderShell(renderQueryBuilder(teams, selectedTeamQuery), renderPlayerPool(poolPlayers), tierPlayers);
-  } else {
-    renderShell(renderQueryBuilder(teams), `<p class="pool__placeholder">Players will appear here once a query runs.</p>`);
-  }
-
+function bindQueryBuilderCallbacks(): void {
   bindQueryBuilder({
     onApplyTeam: (teamId, season) => {
       void loadTeamPool(teamId, season);
@@ -163,6 +213,46 @@ async function init(): Promise<void> {
       void loadStatPool(statCategoryId, season, limit);
     },
   });
+}
+
+async function openSavedList(id: string): Promise<void> {
+  const list = getSavedList(id);
+  if (!list) return;
+
+  rememberPlayers(list.players);
+  currentQuery = list.query;
+  currentListId = list.id;
+  setLastOpenedId(list.id);
+
+  const poolPlayers = list.poolPlayerIds
+    .map((pid) => playersById.get(pid))
+    .filter((p): p is PoolPlayer => p !== undefined);
+  const tierPlayers = list.tierPlayerIds.map((ids) =>
+    ids.map((pid) => playersById.get(pid)).filter((p): p is PoolPlayer => p !== undefined),
+  );
+
+  const selectedTeamQuery = list.query?.kind === "team" ? list.query : undefined;
+
+  renderShell(renderQueryBuilder(teams, selectedTeamQuery), renderPlayerPool(poolPlayers), tierPlayers);
+  bindQueryBuilderCallbacks();
+}
+
+async function init(): Promise<void> {
+  renderShell(
+    `<h2 class="query-builder__heading">Build your pool</h2><p class="query-builder__placeholder">Loading teams…</p>`,
+    `<p class="pool__placeholder">Players will appear here once a query runs.</p>`,
+  );
+
+  teams = await fetchTeams();
+
+  const lastOpenedId = getLastOpenedId();
+  if (lastOpenedId && getSavedList(lastOpenedId)) {
+    await openSavedList(lastOpenedId);
+    return;
+  }
+
+  renderShell(renderQueryBuilder(teams), `<p class="pool__placeholder">Players will appear here once a query runs.</p>`);
+  bindQueryBuilderCallbacks();
 }
 
 void init();
