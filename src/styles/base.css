@@ -54,6 +54,37 @@ body {
   color: #666;
 }
 
+.query-builder__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
+.query-builder__field select,
+.query-builder__field input {
+  font: inherit;
+  padding: 0.4rem;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+}
+
+#qb-apply {
+  font-family: var(--font-body);
+  font-weight: 600;
+  background: var(--color-accent);
+  color: var(--color-chalk-white);
+  border: none;
+  border-radius: 2px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
+#qb-apply:hover {
+  filter: brightness(0.95);
+}
+
 .board {
   display: flex;
   flex-direction: column;
@@ -106,5 +137,32 @@ body {
 
 .pool__placeholder {
   font-size: 0.85rem;
+  color: #666;
+}
+
+.pool__cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.pool__card {
+  display: flex;
+  flex-direction: column;
+  min-width: 7rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-bg);
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  font-size: 0.85rem;
+}
+
+.pool__card-name {
+  font-weight: 600;
+}
+
+.pool__card-position {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
   color: #666;
 }
