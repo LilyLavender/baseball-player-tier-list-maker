@@ -6,12 +6,20 @@ export interface QueryBuilderCallbacks {
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-export function renderQueryBuilder(teams: Team[]): string {
+export function renderQueryBuilder(
+  teams: Team[],
+  selected?: { teamId: number; season: number },
+): string {
   const teamOptions = teams
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name))
-    .map((team) => `<option value="${team.id}">${team.name}</option>`)
+    .map(
+      (team) =>
+        `<option value="${team.id}" ${team.id === selected?.teamId ? "selected" : ""}>${team.name}</option>`,
+    )
     .join("");
+
+  const season = selected?.season ?? CURRENT_YEAR;
 
   return `
     <h2 class="query-builder__heading">Build your pool</h2>
@@ -21,7 +29,7 @@ export function renderQueryBuilder(teams: Team[]): string {
     </label>
     <label class="query-builder__field">
       Season
-      <input id="qb-season" type="number" value="${CURRENT_YEAR}" min="1901" max="${CURRENT_YEAR}" />
+      <input id="qb-season" type="number" value="${season}" min="1901" max="${CURRENT_YEAR}" />
     </label>
     <button id="qb-apply" type="button">Apply</button>
   `;
