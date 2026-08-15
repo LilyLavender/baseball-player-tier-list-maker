@@ -33,6 +33,22 @@ body {
   user-select: none;
 }
 
+.topbar__controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.topbar__theme-select {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--color-chalk-white);
+  border-radius: 2px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
 .topbar__save {
   font-family: var(--font-body);
   font-weight: 600;
@@ -56,7 +72,7 @@ body {
 
 .query-builder {
   background: var(--color-surface);
-  border-right: 1px solid #ddd;
+  border-right: 1px solid var(--color-border);
   padding: 1rem;
 }
 
@@ -72,7 +88,7 @@ body {
 
 .query-builder__placeholder {
   font-size: 0.85rem;
-  color: #666;
+  color: var(--color-text-muted);
 }
 
 .query-builder__field {
@@ -87,7 +103,7 @@ body {
 .query-builder__field input {
   font: inherit;
   padding: 0.4rem;
-  border: 1px solid #ccc;
+  border: 1px solid var(--color-border);
   border-radius: 2px;
 }
 
@@ -138,7 +154,7 @@ body {
 }
 
 .pool {
-  border-top: 1px solid #ddd;
+  border-top: 1px solid var(--color-border);
   background: var(--color-surface);
   padding: 0.75rem 1rem;
 }
@@ -155,7 +171,7 @@ body {
 
 .pool__placeholder {
   font-size: 0.85rem;
-  color: #666;
+  color: var(--color-text-muted);
 }
 
 .pool__cards,
@@ -173,7 +189,7 @@ body {
   width: 5.5rem;
   height: 6.5rem;
   overflow: hidden;
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-border);
   border-radius: 3px;
   cursor: grab;
   user-select: none;
@@ -203,9 +219,9 @@ body {
   justify-content: center;
   padding: 0.5rem;
   background: var(--color-surface);
-  border: 2px dashed var(--color-stitch-red);
+  border: 2px dashed var(--color-danger);
   border-radius: 4px;
-  color: var(--color-stitch-red);
+  color: var(--color-danger);
   font-family: var(--font-display);
   font-size: 0.8rem;
   text-align: center;

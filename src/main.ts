@@ -6,7 +6,11 @@ import { renderTierBoard } from "./components/tierBoard";
 import { initPoolSortable, initTierSortables, initTrashSortable } from "./dnd/dragAndDrop";
 import { collectPoolPlayerIds, collectTierPlayerIds } from "./storage/collectBoardState";
 import { loadActiveList, saveActiveList } from "./storage/activeList";
+import { applyTheme, loadThemePref, saveThemePref } from "./storage/themePref";
+import type { ThemeName } from "./storage/themePref";
 import type { RosterPlayer } from "./types/mlb";
+
+applyTheme(loadThemePref());
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const playersById = new Map<number, RosterPlayer>();
@@ -26,7 +30,14 @@ function renderShell(
   app.innerHTML = `
     <header class="topbar">
       <span class="topbar__wordmark">MLB Tier List Maker</span>
-      <button id="save-list" type="button" class="topbar__save">Save</button>
+      <div class="topbar__controls">
+        <select id="theme-select" class="topbar__theme-select">
+          <option value="scorecard">Scorecard</option>
+          <option value="light">Classic Light</option>
+          <option value="dark">Classic Dark</option>
+        </select>
+        <button id="save-list" type="button" class="topbar__save">Save</button>
+      </div>
     </header>
     <div class="layout">
       <aside class="query-builder">${queryBuilderContent}</aside>
@@ -51,6 +62,14 @@ function renderShell(
       poolPlayerIds: collectPoolPlayerIds(),
       tierPlayerIds: collectTierPlayerIds(),
     });
+  });
+
+  const themeSelect = document.querySelector<HTMLSelectElement>("#theme-select")!;
+  themeSelect.value = loadThemePref();
+  themeSelect.addEventListener("change", () => {
+    const theme = themeSelect.value as ThemeName;
+    applyTheme(theme);
+    saveThemePref(theme);
   });
 }
 
