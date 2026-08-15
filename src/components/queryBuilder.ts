@@ -4,10 +4,12 @@ import { fetchTeams } from "../api/mlbApi";
 import { STAT_CATEGORIES } from "../data/statCategories";
 import { bindComboBox, getComboBoxValue, renderComboBox, setComboBoxOptions } from "./comboBox";
 import type { ComboBoxOption } from "./comboBox";
+import type { AutoTierStrategy } from "../tiering/autoTier";
 
 export interface QueryBuilderCallbacks {
   onApplyTeam: (teamId: number | "all", season: number) => void;
   onApplyStat: (statCategoryId: string, season: number, limit: number) => void;
+  onGenerateAutoTiers: (strategy: AutoTierStrategy) => void;
 }
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -73,6 +75,27 @@ export function renderQueryBuilder(
       </select>
     </label>
     <button id="qb-stat-apply" type="button">Apply</button>
+
+    <h2 class="query-builder__heading query-builder__heading--stat">Auto-tier from pool</h2>
+    <p class="query-builder__placeholder">Builds tiers from stat values already in the pool. Run a stat leaders query first.</p>
+    <label class="query-builder__field">
+      Strategy
+      <select id="qb-autotier-strategy">
+        <option value="interval">Fixed interval</option>
+        <option value="per-unit">One tier per value</option>
+        <option value="auto-grouping">Auto S-F grouping</option>
+        <option value="thresholds">Custom thresholds</option>
+      </select>
+    </label>
+    <label class="query-builder__field" id="qb-autotier-interval-field">
+      Interval size
+      <input id="qb-autotier-interval" type="number" value="10" min="0.1" step="0.1" />
+    </label>
+    <label class="query-builder__field" id="qb-autotier-thresholds-field" hidden>
+      Thresholds (comma-separated)
+      <input id="qb-autotier-thresholds" type="text" placeholder="e.g. 40, 30, 20, 10" />
+    </label>
+    <button id="qb-autotier-apply" type="button">Generate Tiers</button>
   `;
 }
 
@@ -114,5 +137,34 @@ export function bindQueryBuilder(teams: Team[], callbacks: QueryBuilderCallbacks
     const statId = getComboBoxValue("qb-stat");
     if (!statId) return;
     callbacks.onApplyStat(statId, Number(statSeasonInput.value), Number(statLimitSelect.value));
+  });
+
+  const strategySelect = document.querySelector<HTMLSelectElement>("#qb-autotier-strategy")!;
+  const intervalField = document.querySelector<HTMLLabelElement>("#qb-autotier-interval-field")!;
+  const intervalInput = document.querySelector<HTMLInputElement>("#qb-autotier-interval")!;
+  const thresholdsField = document.querySelector<HTMLLabelElement>("#qb-autotier-thresholds-field")!;
+  const thresholdsInput = document.querySelector<HTMLInputElement>("#qb-autotier-thresholds")!;
+  const autoTierApplyButton = document.querySelector<HTMLButtonElement>("#qb-autotier-apply")!;
+
+  strategySelect.addEventListener("change", () => {
+    intervalField.hidden = strategySelect.value !== "interval";
+    thresholdsField.hidden = strategySelect.value !== "thresholds";
+  });
+
+  autoTierApplyButton.addEventListener("click", () => {
+    const kind = strategySelect.value;
+    if (kind === "interval") {
+      callbacks.onGenerateAutoTiers({ kind: "interval", size: Number(intervalInput.value) || 1 });
+    } else if (kind === "per-unit") {
+      callbacks.onGenerateAutoTiers({ kind: "per-unit" });
+    } else if (kind === "auto-grouping") {
+      callbacks.onGenerateAutoTiers({ kind: "auto-grouping" });
+    } else if (kind === "thresholds") {
+      const thresholds = thresholdsInput.value
+        .split(",")
+        .map((part) => Number(part.trim()))
+        .filter((n) => Number.isFinite(n));
+      callbacks.onGenerateAutoTiers({ kind: "thresholds", thresholds });
+    }
   });
 }

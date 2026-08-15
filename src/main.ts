@@ -28,6 +28,8 @@ import { cloneDefaultTiers } from "./data/tiers";
 import type { TierDefinition } from "./data/tiers";
 import { describeQuery } from "./utils/queryLabel";
 import { exportTierListAsPng } from "./export/exportImage";
+import { generateAutoTiers } from "./tiering/autoTier";
+import type { AutoTierStrategy } from "./tiering/autoTier";
 import type { PoolPlayer, Team } from "./types/mlb";
 
 applyTheme(loadThemePref());
@@ -312,6 +314,24 @@ async function loadStatPool(statCategoryId: string, season: number, limit: numbe
   setPoolContent(renderPlayerPool(players));
 }
 
+function applyAutoTiers(strategy: AutoTierStrategy): void {
+  const poolPlayers = playersFromIds(collectPoolPlayerIds());
+  const query = currentQuery;
+  const order =
+    query !== null && query.kind === "stat"
+      ? (STAT_CATEGORIES.find((s) => s.id === query.statCategoryId)?.order ?? "desc")
+      : "desc";
+
+  const { tiers, tierPlayers, leftoverPool } = generateAutoTiers(poolPlayers, order, strategy);
+  if (tiers.length === 0) {
+    window.alert("No stat values found in the pool. Run a stat leaders query first.");
+    return;
+  }
+
+  currentTiers = tiers;
+  rerenderBoardAndPool(tierPlayers, leftoverPool);
+}
+
 function bindQueryBuilderCallbacks(): void {
   bindQueryBuilder(teams, {
     onApplyTeam: (teamId, season) => {
@@ -319,6 +339,9 @@ function bindQueryBuilderCallbacks(): void {
     },
     onApplyStat: (statCategoryId, season, limit) => {
       void loadStatPool(statCategoryId, season, limit);
+    },
+    onGenerateAutoTiers: (strategy) => {
+      applyAutoTiers(strategy);
     },
   });
 }
