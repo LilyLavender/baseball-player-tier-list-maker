@@ -553,3 +553,19 @@ body {
   line-height: 1.1;
   text-align: left;
 }
+
+.player-card--no-photo {
+  background: linear-gradient(160deg, var(--color-primary), var(--color-ink-navy));
+}
+
+.player-card--no-photo .player-card__name {
+  position: static;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  text-align: center;
+  font-size: 1rem;
+  line-height: 1.25;
+}

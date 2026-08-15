@@ -47,36 +47,40 @@ export async function fetchRoster(teamId: number, season: number): Promise<PoolP
     id: entry.person.id,
     fullName: entry.person.fullName,
     positionAbbreviation: entry.position.abbreviation,
+    season,
   }));
 }
 
-interface StatLeadersResponse {
-  leagueLeaders: Array<{
-    leaders: Array<{
-      value: string;
-      person: { id: number; fullName: string };
+interface StatSplitsResponse {
+  stats: Array<{
+    splits: Array<{
+      player: { id: number; fullName: string };
+      stat: Record<string, string | number>;
     }>;
   }>;
 }
 
 export async function fetchStatLeaders(
-  leaderCategory: string,
+  sortStat: string,
+  statKey: string,
   statGroup: "hitting" | "pitching",
+  order: "asc" | "desc",
   qualified: boolean,
   statLabel: string,
   season: number,
   limit: number,
 ): Promise<PoolPlayer[]> {
   const qualifierParam = qualified ? "&playerPool=Qualified" : "";
-  const data = await getJson<StatLeadersResponse>(
-    `/stats/leaders?leaderCategories=${leaderCategory}&season=${season}&sportId=1&limit=${limit}` +
-      `&statGroup=${statGroup}${qualifierParam}`,
+  const data = await getJson<StatSplitsResponse>(
+    `/stats?stats=season&group=${statGroup}&season=${season}&sportId=1&limit=${limit}` +
+      `&sortStat=${sortStat}&order=${order}${qualifierParam}`,
   );
-  const leaders = data.leagueLeaders[0]?.leaders ?? [];
-  return leaders.map((entry) => ({
-    id: entry.person.id,
-    fullName: entry.person.fullName,
+  const splits = data.stats[0]?.splits ?? [];
+  return splits.map((entry) => ({
+    id: entry.player.id,
+    fullName: entry.player.fullName,
     statLabel,
-    statValue: entry.value,
+    statValue: String(entry.stat[statKey] ?? ""),
+    season,
   }));
 }

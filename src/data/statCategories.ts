@@ -1,47 +1,51 @@
 export interface StatCategory {
   id: string;
-  leaderCategory: string;
+  /** Param sent to the MLB Stats API's sortStat. */
+  sortStat: string;
+  /** Key of the value within the API response's per-player `stat` object. */
+  statKey: string;
   label: string;
   group: "hitting" | "pitching";
+  order: "asc" | "desc";
   /** Rate stats need the "qualified" minimum PA/IP filter to avoid small-sample outliers. */
   qualified: boolean;
 }
 
 export const STAT_CATEGORIES: StatCategory[] = [
   // Hitting
-  { id: "hr", leaderCategory: "homeRuns", label: "Home Runs", group: "hitting", qualified: false },
-  { id: "hits", leaderCategory: "hits", label: "Hits", group: "hitting", qualified: false },
-  { id: "doubles", leaderCategory: "doubles", label: "Doubles", group: "hitting", qualified: false },
-  { id: "triples", leaderCategory: "triples", label: "Triples", group: "hitting", qualified: false },
-  { id: "total-bases", leaderCategory: "totalBases", label: "Total Bases", group: "hitting", qualified: false },
-  { id: "rbi", leaderCategory: "runsBattedIn", label: "RBI", group: "hitting", qualified: false },
-  { id: "runs", leaderCategory: "runs", label: "Runs Scored", group: "hitting", qualified: false },
-  { id: "avg", leaderCategory: "battingAverage", label: "Batting Average", group: "hitting", qualified: true },
-  { id: "obp", leaderCategory: "onBasePercentage", label: "On-Base %", group: "hitting", qualified: true },
-  { id: "slg", leaderCategory: "sluggingPercentage", label: "Slugging %", group: "hitting", qualified: true },
-  { id: "ops", leaderCategory: "onBasePlusSlugging", label: "OPS", group: "hitting", qualified: true },
-  { id: "sb", leaderCategory: "stolenBases", label: "Stolen Bases", group: "hitting", qualified: false },
-  { id: "cs", leaderCategory: "caughtStealing", label: "Caught Stealing", group: "hitting", qualified: false },
-  { id: "bb-hit", leaderCategory: "baseOnBalls", label: "Walks", group: "hitting", qualified: false },
-  { id: "so-hit", leaderCategory: "strikeouts", label: "Strikeouts (Batting)", group: "hitting", qualified: false },
-  { id: "sf", leaderCategory: "sacrificeFlies", label: "Sacrifice Flies", group: "hitting", qualified: false },
-  { id: "gidp", leaderCategory: "groundIntoDoublePlay", label: "Grounded Into Double Play", group: "hitting", qualified: false },
-  { id: "games-hit", leaderCategory: "gamesPlayed", label: "Games Played", group: "hitting", qualified: false },
+  { id: "hr", sortStat: "homeRuns", statKey: "homeRuns", label: "Home Runs", group: "hitting", order: "desc", qualified: false },
+  { id: "hits", sortStat: "hits", statKey: "hits", label: "Hits", group: "hitting", order: "desc", qualified: false },
+  { id: "doubles", sortStat: "doubles", statKey: "doubles", label: "Doubles", group: "hitting", order: "desc", qualified: false },
+  { id: "triples", sortStat: "triples", statKey: "triples", label: "Triples", group: "hitting", order: "desc", qualified: false },
+  { id: "total-bases", sortStat: "totalBases", statKey: "totalBases", label: "Total Bases", group: "hitting", order: "desc", qualified: false },
+  { id: "rbi", sortStat: "rbi", statKey: "rbi", label: "RBI", group: "hitting", order: "desc", qualified: false },
+  { id: "runs", sortStat: "runs", statKey: "runs", label: "Runs Scored", group: "hitting", order: "desc", qualified: false },
+  { id: "avg", sortStat: "battingAverage", statKey: "avg", label: "Batting Average", group: "hitting", order: "desc", qualified: true },
+  { id: "obp", sortStat: "onBasePercentage", statKey: "obp", label: "On-Base %", group: "hitting", order: "desc", qualified: true },
+  { id: "slg", sortStat: "sluggingPercentage", statKey: "slg", label: "Slugging %", group: "hitting", order: "desc", qualified: true },
+  { id: "ops", sortStat: "onBasePlusSlugging", statKey: "ops", label: "OPS", group: "hitting", order: "desc", qualified: true },
+  { id: "sb", sortStat: "stolenBases", statKey: "stolenBases", label: "Stolen Bases", group: "hitting", order: "desc", qualified: false },
+  { id: "cs", sortStat: "caughtStealing", statKey: "caughtStealing", label: "Caught Stealing", group: "hitting", order: "desc", qualified: false },
+  { id: "bb-hit", sortStat: "baseOnBalls", statKey: "baseOnBalls", label: "Walks", group: "hitting", order: "desc", qualified: false },
+  { id: "so-hit", sortStat: "strikeouts", statKey: "strikeOuts", label: "Strikeouts (Batting)", group: "hitting", order: "desc", qualified: false },
+  { id: "sf", sortStat: "sacrificeFlies", statKey: "sacFlies", label: "Sacrifice Flies", group: "hitting", order: "desc", qualified: false },
+  { id: "gidp", sortStat: "groundIntoDoublePlay", statKey: "groundIntoDoublePlay", label: "Grounded Into Double Play", group: "hitting", order: "desc", qualified: false },
+  { id: "games-hit", sortStat: "gamesPlayed", statKey: "gamesPlayed", label: "Games Played", group: "hitting", order: "desc", qualified: false },
 
   // Pitching
-  { id: "era", leaderCategory: "earnedRunAverage", label: "ERA", group: "pitching", qualified: true },
-  { id: "wins", leaderCategory: "wins", label: "Wins", group: "pitching", qualified: false },
-  { id: "losses", leaderCategory: "losses", label: "Losses", group: "pitching", qualified: false },
-  { id: "so-pitch", leaderCategory: "strikeouts", label: "Strikeouts", group: "pitching", qualified: false },
-  { id: "saves", leaderCategory: "saves", label: "Saves", group: "pitching", qualified: false },
-  { id: "holds", leaderCategory: "holds", label: "Holds", group: "pitching", qualified: false },
-  { id: "blown-saves", leaderCategory: "blownSaves", label: "Blown Saves", group: "pitching", qualified: false },
-  { id: "whip", leaderCategory: "walksAndHitsPerInningPitched", label: "WHIP", group: "pitching", qualified: true },
-  { id: "bb-pitch", leaderCategory: "baseOnBalls", label: "Walks Allowed", group: "pitching", qualified: false },
-  { id: "ip", leaderCategory: "inningsPitched", label: "Innings Pitched", group: "pitching", qualified: false },
-  { id: "games-pitch", leaderCategory: "gamesPlayed", label: "Games Played", group: "pitching", qualified: false },
-  { id: "games-started", leaderCategory: "gamesStarted", label: "Games Started", group: "pitching", qualified: false },
-  { id: "complete-games", leaderCategory: "completeGames", label: "Complete Games", group: "pitching", qualified: false },
-  { id: "shutouts", leaderCategory: "shutouts", label: "Shutouts", group: "pitching", qualified: false },
-  { id: "hbp", leaderCategory: "hitBatsmen", label: "Hit Batsmen", group: "pitching", qualified: false },
+  { id: "era", sortStat: "earnedRunAverage", statKey: "era", label: "ERA", group: "pitching", order: "asc", qualified: true },
+  { id: "wins", sortStat: "wins", statKey: "wins", label: "Wins", group: "pitching", order: "desc", qualified: false },
+  { id: "losses", sortStat: "losses", statKey: "losses", label: "Losses", group: "pitching", order: "desc", qualified: false },
+  { id: "so-pitch", sortStat: "strikeouts", statKey: "strikeOuts", label: "Strikeouts", group: "pitching", order: "desc", qualified: false },
+  { id: "saves", sortStat: "saves", statKey: "saves", label: "Saves", group: "pitching", order: "desc", qualified: false },
+  { id: "holds", sortStat: "holds", statKey: "holds", label: "Holds", group: "pitching", order: "desc", qualified: false },
+  { id: "blown-saves", sortStat: "blownSaves", statKey: "blownSaves", label: "Blown Saves", group: "pitching", order: "desc", qualified: false },
+  { id: "whip", sortStat: "walksAndHitsPerInningPitched", statKey: "whip", label: "WHIP", group: "pitching", order: "asc", qualified: true },
+  { id: "bb-pitch", sortStat: "baseOnBalls", statKey: "baseOnBalls", label: "Walks Allowed", group: "pitching", order: "desc", qualified: false },
+  { id: "ip", sortStat: "inningsPitched", statKey: "inningsPitched", label: "Innings Pitched", group: "pitching", order: "desc", qualified: false },
+  { id: "games-pitch", sortStat: "gamesPlayed", statKey: "gamesPlayed", label: "Games Played", group: "pitching", order: "desc", qualified: false },
+  { id: "games-started", sortStat: "gamesStarted", statKey: "gamesStarted", label: "Games Started", group: "pitching", order: "desc", qualified: false },
+  { id: "complete-games", sortStat: "completeGames", statKey: "completeGames", label: "Complete Games", group: "pitching", order: "desc", qualified: false },
+  { id: "shutouts", sortStat: "shutouts", statKey: "shutouts", label: "Shutouts", group: "pitching", order: "desc", qualified: false },
+  { id: "hbp", sortStat: "hitBatsmen", statKey: "hitBatsmen", label: "Hit Batsmen", group: "pitching", order: "desc", qualified: false },
 ];

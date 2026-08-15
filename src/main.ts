@@ -265,8 +265,10 @@ async function loadStatPool(statCategoryId: string, season: number, limit: numbe
   let players: PoolPlayer[] = [];
   try {
     players = await fetchStatLeaders(
-      stat.leaderCategory,
+      stat.sortStat,
+      stat.statKey,
       stat.group,
+      stat.order,
       stat.qualified,
       stat.label,
       season,

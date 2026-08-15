@@ -6,15 +6,20 @@ export function renderPlayerCard(player: PoolPlayer): string {
     ? `<span class="player-card__stat">${player.statValue}</span>`
     : "";
 
+  const primarySrc = headshotUrl(player.id, player.season);
+  const fallbackSrc = headshotUrl(player.id);
+
   return `
     <div class="player-card" data-player-id="${player.id}">
       <img
         class="player-card__headshot"
-        src="${headshotUrl(player.id)}"
+        src="${primarySrc}"
+        data-fallback-src="${fallbackSrc}"
         alt=""
         loading="lazy"
         width="112"
         height="128"
+        onerror="if (this.src !== this.dataset.fallbackSrc) { this.src = this.dataset.fallbackSrc; } else { this.closest('.player-card').classList.add('player-card--no-photo'); this.remove(); }"
       />
       ${statBadge}
       <span class="player-card__name">${player.fullName}</span>

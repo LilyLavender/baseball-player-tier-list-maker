@@ -36,10 +36,6 @@ export function renderQueryBuilder(
   return `
     <h2 class="query-builder__heading">By team &amp; season</h2>
     <label class="query-builder__field">
-      Season
-      <input id="qb-season" type="number" value="${teamSeason}" min="1901" max="${CURRENT_YEAR}" />
-    </label>
-    <label class="query-builder__field">
       Team
       ${renderComboBox(
         "qb-team",
@@ -47,6 +43,10 @@ export function renderQueryBuilder(
         selectedTeamQuery ? String(selectedTeamQuery.teamId) : undefined,
         "Search teams…",
       )}
+    </label>
+    <label class="query-builder__field">
+      Season
+      <input id="qb-season" type="number" value="${teamSeason}" min="1901" max="${CURRENT_YEAR}" />
     </label>
     <button id="qb-apply" type="button">Apply</button>
 
