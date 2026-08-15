@@ -4,15 +4,8 @@ export interface ComboBoxOption {
   iconUrl?: string;
 }
 
-export function renderComboBox(
-  id: string,
-  options: ComboBoxOption[],
-  selectedValue?: string,
-  placeholder = "Search…",
-): string {
-  const selected = options.find((o) => o.value === selectedValue);
-
-  const optionRows = options
+function optionRowsHtml(options: ComboBoxOption[]): string {
+  return options
     .map(
       (opt) => `
         <div class="combo__option" data-value="${opt.value}">
@@ -22,6 +15,15 @@ export function renderComboBox(
       `,
     )
     .join("");
+}
+
+export function renderComboBox(
+  id: string,
+  options: ComboBoxOption[],
+  selectedValue?: string,
+  placeholder = "Search…",
+): string {
+  const selected = options.find((o) => o.value === selectedValue);
 
   return `
     <div class="combo" id="${id}" data-value="${selected?.value ?? ""}">
@@ -33,9 +35,29 @@ export function renderComboBox(
         autocomplete="off"
         value="${selected?.label ?? ""}"
       />
-      <div class="combo__list" id="${id}-list" hidden>${optionRows}</div>
+      <div class="combo__list" id="${id}-list" hidden>${optionRowsHtml(options)}</div>
     </div>
   `;
+}
+
+const boundSelectHandlers = new Map<string, (value: string) => void>();
+const boundOptionsById = new Map<string, ComboBoxOption[]>();
+
+function bindOptionRows(id: string): void {
+  const container = document.getElementById(id)!;
+  const list = document.getElementById(`${id}-list`) as HTMLDivElement;
+
+  list.querySelectorAll<HTMLDivElement>(".combo__option").forEach((row) => {
+    row.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      const value = row.dataset.value!;
+      container.dataset.value = value;
+      boundSelectHandlers.get(id)?.(value);
+      list.hidden = true;
+      const input = document.getElementById(`${id}-input`) as HTMLInputElement;
+      input.value = row.textContent?.trim() ?? "";
+    });
+  });
 }
 
 export function bindComboBox(
@@ -43,13 +65,16 @@ export function bindComboBox(
   options: ComboBoxOption[],
   onSelect: (value: string) => void,
 ): void {
+  boundSelectHandlers.set(id, onSelect);
+  boundOptionsById.set(id, options);
+
   const container = document.getElementById(id)!;
   const input = document.getElementById(`${id}-input`) as HTMLInputElement;
   const list = document.getElementById(`${id}-list`) as HTMLDivElement;
 
   function currentLabel(): string {
     const value = container.dataset.value;
-    return options.find((o) => o.value === value)?.label ?? "";
+    return boundOptionsById.get(id)?.find((o) => o.value === value)?.label ?? "";
   }
 
   function filterList(query: string): void {
@@ -92,21 +117,34 @@ export function bindComboBox(
     }
   });
 
-  list.querySelectorAll<HTMLDivElement>(".combo__option").forEach((row) => {
-    row.addEventListener("mousedown", (event) => {
-      event.preventDefault();
-      const value = row.dataset.value!;
-      container.dataset.value = value;
-      onSelect(value);
-      closeList();
-    });
-  });
-
   container.addEventListener("focusout", (event) => {
     if (!container.contains(event.relatedTarget as Node)) {
       closeList();
     }
   });
+
+  bindOptionRows(id);
+}
+
+/** Replace a combo box's options in place (e.g. teams for a different season). */
+export function setComboBoxOptions(id: string, options: ComboBoxOption[], preferredValue?: string): void {
+  boundOptionsById.set(id, options);
+
+  const container = document.getElementById(id)!;
+  const input = document.getElementById(`${id}-input`) as HTMLInputElement;
+  const list = document.getElementById(`${id}-list`) as HTMLDivElement;
+
+  const keepValue = options.some((o) => o.value === preferredValue)
+    ? preferredValue
+    : options.some((o) => o.value === container.dataset.value)
+      ? container.dataset.value
+      : undefined;
+  const selected = options.find((o) => o.value === keepValue);
+
+  list.innerHTML = optionRowsHtml(options);
+  container.dataset.value = selected?.value ?? "";
+  input.value = selected?.label ?? "";
+  bindOptionRows(id);
 }
 
 export function getComboBoxValue(id: string): string {

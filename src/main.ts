@@ -164,19 +164,21 @@ function renderShell(
       </div>
     </header>
     <div class="layout">
-      <aside class="query-builder">${queryBuilderContent}</aside>
+      <aside class="query-builder">
+        ${queryBuilderContent}
+        <div id="remove-zone" class="remove-zone">
+          <div class="remove-zone__content">
+            <span class="remove-zone__icon" aria-hidden="true">🗑</span>
+            <span>Remove player</span>
+          </div>
+        </div>
+      </aside>
       <div class="board-wrap">
         ${renderTierBoard(currentTiers, tierPlayers)}
         <section class="pool">
           <h2 class="pool__heading">Unranked pool</h2>
           <div id="pool-content">${poolContent}</div>
         </section>
-      </div>
-    </div>
-    <div id="remove-zone" class="remove-zone">
-      <div class="remove-zone__content">
-        <span class="remove-zone__icon" aria-hidden="true">🗑</span>
-        <span>Remove player</span>
       </div>
     </div>
   `;

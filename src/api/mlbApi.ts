@@ -20,8 +20,9 @@ interface TeamsResponse {
   }>;
 }
 
-export async function fetchTeams(): Promise<Team[]> {
-  const data = await getJson<TeamsResponse>("/teams?sportId=1");
+export async function fetchTeams(season?: number): Promise<Team[]> {
+  const seasonParam = season ? `&season=${season}` : "";
+  const data = await getJson<TeamsResponse>(`/teams?sportId=1${seasonParam}`);
   return data.teams.map((team) => ({
     id: team.id,
     name: team.name,
