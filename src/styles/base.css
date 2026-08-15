@@ -148,13 +148,24 @@ body {
 .player-card {
   display: flex;
   flex-direction: column;
-  min-width: 7rem;
-  padding: 0.5rem 0.75rem;
+  align-items: center;
+  width: 5.5rem;
+  padding: 0.4rem;
   background: var(--color-surface);
   border: 1px solid #ddd;
   border-radius: 3px;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
+  text-align: center;
   cursor: grab;
+}
+
+.player-card__headshot {
+  width: 3.75rem;
+  height: 3.75rem;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--color-bg);
+  margin-bottom: 0.3rem;
 }
 
 .player-card--ghost {
@@ -162,7 +173,9 @@ body {
 }
 
 .player-card__name {
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.1;
 }
 
 .player-card__position {
