@@ -34,6 +34,7 @@ export function renderQueryBuilder(
   selectedTeamQuery?: { teamId: number | "all"; season: number },
 ): string {
   const teamSeason = selectedTeamQuery?.season ?? CURRENT_YEAR;
+  const defaultTeamValue = selectedTeamQuery ? String(selectedTeamQuery.teamId) : ALL_TEAMS_VALUE;
 
   return `
     <h2 class="query-builder__heading">By team &amp; season</h2>
@@ -42,7 +43,7 @@ export function renderQueryBuilder(
       ${renderComboBox(
         "qb-team",
         teamOptions(teams),
-        selectedTeamQuery ? String(selectedTeamQuery.teamId) : undefined,
+        defaultTeamValue,
         "Search teams…",
       )}
     </label>

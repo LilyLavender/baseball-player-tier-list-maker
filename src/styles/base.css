@@ -357,7 +357,7 @@ body {
 .player-card__headshot {
   display: block;
   position: absolute;
-  top: -18%;
+  top: -10%;
   left: 0;
   width: 100%;
   height: 130%;
@@ -383,11 +383,11 @@ body {
   bottom: 0;
   width: 260px;
   padding: 1rem;
-  background: var(--color-surface);
-  border: 3px dashed var(--color-border);
+  background: var(--color-danger);
+  border: 3px solid var(--color-danger);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 120ms ease, border-color 120ms ease, background 120ms ease;
+  transition: opacity 120ms ease, border-color 120ms ease;
   z-index: 90;
 }
 
@@ -397,8 +397,7 @@ body {
 }
 
 .remove-zone--active {
-  background: rgba(176, 58, 46, 0.16);
-  border-color: var(--color-danger);
+  border-color: var(--color-chalk-white);
 }
 
 .remove-zone__content {
@@ -410,7 +409,7 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 0.4rem;
-  color: var(--color-text-muted);
+  color: var(--color-chalk-white);
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 1.1rem;
@@ -418,11 +417,6 @@ body {
   letter-spacing: 0.04em;
   text-align: center;
   user-select: none;
-  transition: color 120ms ease;
-}
-
-.remove-zone--active .remove-zone__content {
-  color: var(--color-danger);
 }
 
 .remove-zone__icon {
@@ -432,6 +426,10 @@ body {
 .remove-zone__drop {
   position: absolute;
   inset: 0;
+}
+
+.remove-zone__drop > * {
+  display: none !important;
 }
 
 .history-overlay {
