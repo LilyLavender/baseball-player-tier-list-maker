@@ -1,10 +1,14 @@
-import type { RosterPlayer } from "../types/mlb";
+import type { PoolPlayer } from "../types/mlb";
 
 const STORAGE_KEY = "mlb-tier-list:active";
 
+export type ActiveQuery =
+  | { kind: "team"; teamId: number; season: number }
+  | { kind: "stat"; statCategoryId: string; season: number; limit: number };
+
 export interface ActiveListState {
-  query: { teamId: number; season: number } | null;
-  players: RosterPlayer[];
+  query: ActiveQuery | null;
+  players: PoolPlayer[];
   poolPlayerIds: number[];
   tierPlayerIds: number[][];
 }

@@ -1,22 +1,24 @@
 import "./styles/base.css";
-import { fetchRoster, fetchTeams } from "./api/mlbApi";
+import { fetchRoster, fetchStatLeaders, fetchTeams } from "./api/mlbApi";
 import { bindQueryBuilder, renderQueryBuilder } from "./components/queryBuilder";
 import { renderPlayerPool } from "./components/playerPool";
 import { renderTierBoard } from "./components/tierBoard";
 import { initPoolSortable, initTierSortables, initTrashSortable } from "./dnd/dragAndDrop";
 import { collectPoolPlayerIds, collectTierPlayerIds } from "./storage/collectBoardState";
 import { loadActiveList, saveActiveList } from "./storage/activeList";
+import type { ActiveQuery } from "./storage/activeList";
 import { applyTheme, loadThemePref, saveThemePref } from "./storage/themePref";
 import type { ThemeName } from "./storage/themePref";
-import type { RosterPlayer } from "./types/mlb";
+import { STAT_CATEGORIES } from "./data/statCategories";
+import type { PoolPlayer } from "./types/mlb";
 
 applyTheme(loadThemePref());
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
-const playersById = new Map<number, RosterPlayer>();
-let currentQuery: { teamId: number; season: number } | null = null;
+const playersById = new Map<number, PoolPlayer>();
+let currentQuery: ActiveQuery | null = null;
 
-function rememberPlayers(players: RosterPlayer[]): void {
+function rememberPlayers(players: PoolPlayer[]): void {
   for (const player of players) {
     playersById.set(player.id, player);
   }
@@ -25,7 +27,7 @@ function rememberPlayers(players: RosterPlayer[]): void {
 function renderShell(
   queryBuilderContent: string,
   poolContent: string,
-  tierPlayers: RosterPlayer[][] = [],
+  tierPlayers: PoolPlayer[][] = [],
 ): void {
   app.innerHTML = `
     <header class="topbar">
@@ -78,16 +80,45 @@ function setPoolContent(html: string): void {
   initPoolSortable();
 }
 
-async function loadPool(teamId: number, season: number): Promise<void> {
-  currentQuery = { teamId, season };
+async function loadTeamPool(teamId: number, season: number): Promise<void> {
+  currentQuery = { kind: "team", teamId, season };
   setPoolContent(`<p class="pool__placeholder">Loading roster…</p>`);
 
-  let players: RosterPlayer[] = [];
+  let players: PoolPlayer[] = [];
   try {
     players = await fetchRoster(teamId, season);
   } catch (error) {
     setPoolContent(
       `<p class="pool__placeholder">Couldn't load that roster. Try a different team or season.</p>`,
+    );
+    console.error(error);
+    return;
+  }
+
+  rememberPlayers(players);
+  setPoolContent(renderPlayerPool(players));
+}
+
+async function loadStatPool(statCategoryId: string, season: number, limit: number): Promise<void> {
+  const stat = STAT_CATEGORIES.find((s) => s.id === statCategoryId);
+  if (!stat) return;
+
+  currentQuery = { kind: "stat", statCategoryId, season, limit };
+  setPoolContent(`<p class="pool__placeholder">Loading leaders…</p>`);
+
+  let players: PoolPlayer[] = [];
+  try {
+    players = await fetchStatLeaders(
+      stat.leaderCategory,
+      stat.group,
+      stat.qualified,
+      stat.label,
+      season,
+      limit,
+    );
+  } catch (error) {
+    setPoolContent(
+      `<p class="pool__placeholder">Couldn't load that leaderboard. Try a different stat or season.</p>`,
     );
     console.error(error);
     return;
@@ -112,23 +143,24 @@ async function init(): Promise<void> {
 
     const poolPlayers = saved.poolPlayerIds
       .map((id) => playersById.get(id))
-      .filter((p): p is RosterPlayer => p !== undefined);
+      .filter((p): p is PoolPlayer => p !== undefined);
     const tierPlayers = saved.tierPlayerIds.map((ids) =>
-      ids.map((id) => playersById.get(id)).filter((p): p is RosterPlayer => p !== undefined),
+      ids.map((id) => playersById.get(id)).filter((p): p is PoolPlayer => p !== undefined),
     );
 
-    renderShell(
-      renderQueryBuilder(teams, saved.query ?? undefined),
-      renderPlayerPool(poolPlayers),
-      tierPlayers,
-    );
+    const selectedTeamQuery = saved.query?.kind === "team" ? saved.query : undefined;
+
+    renderShell(renderQueryBuilder(teams, selectedTeamQuery), renderPlayerPool(poolPlayers), tierPlayers);
   } else {
     renderShell(renderQueryBuilder(teams), `<p class="pool__placeholder">Players will appear here once a query runs.</p>`);
   }
 
   bindQueryBuilder({
-    onApply: (teamId, season) => {
-      void loadPool(teamId, season);
+    onApplyTeam: (teamId, season) => {
+      void loadTeamPool(teamId, season);
+    },
+    onApplyStat: (statCategoryId, season, limit) => {
+      void loadStatPool(statCategoryId, season, limit);
     },
   });
 }

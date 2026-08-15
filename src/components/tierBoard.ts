@@ -1,8 +1,8 @@
 import { DEFAULT_TIERS } from "../data/tiers";
 import { renderPlayerCard } from "./playerCard";
-import type { RosterPlayer } from "../types/mlb";
+import type { PoolPlayer } from "../types/mlb";
 
-export function renderTierBoard(tierPlayers: RosterPlayer[][] = []): string {
+export function renderTierBoard(tierPlayers: PoolPlayer[][] = []): string {
   const rows = DEFAULT_TIERS.map((tier, index) => {
     const cards = (tierPlayers[index] ?? []).map(renderPlayerCard).join("");
     return `

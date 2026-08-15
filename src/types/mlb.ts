@@ -6,12 +6,12 @@ export interface Team {
   locationName: string;
 }
 
-export interface RosterPlayer {
+export interface PoolPlayer {
   id: number;
   fullName: string;
-  jerseyNumber: string;
-  positionName: string;
-  positionAbbreviation: string;
+  positionAbbreviation?: string;
+  statLabel?: string;
+  statValue?: string;
 }
 
 export function headshotUrl(playerId: number): string {

@@ -86,6 +86,12 @@ body {
   user-select: none;
 }
 
+.query-builder__heading--stat {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
 .query-builder__placeholder {
   font-size: 0.85rem;
   color: var(--color-text-muted);
@@ -107,7 +113,8 @@ body {
   border-radius: 2px;
 }
 
-#qb-apply {
+#qb-apply,
+#qb-stat-apply {
   font-family: var(--font-body);
   font-weight: 600;
   background: var(--color-accent);
@@ -118,7 +125,8 @@ body {
   cursor: pointer;
 }
 
-#qb-apply:hover {
+#qb-apply:hover,
+#qb-stat-apply:hover {
   filter: brightness(0.95);
 }
 
@@ -228,6 +236,19 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.03em;
   user-select: none;
+}
+
+.player-card__stat {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  padding: 0.1rem 0.35rem;
+  background: var(--color-highlight);
+  color: var(--color-ink-navy);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.65rem;
+  border-radius: 2px;
 }
 
 .player-card__name {

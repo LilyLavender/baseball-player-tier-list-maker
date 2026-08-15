@@ -1,4 +1,4 @@
-import type { RosterPlayer, Team } from "../types/mlb";
+import type { PoolPlayer, Team } from "../types/mlb";
 
 const BASE_URL = "https://statsapi.mlb.com/api/v1";
 
@@ -34,23 +34,48 @@ export async function fetchTeams(): Promise<Team[]> {
 interface RosterResponse {
   roster: Array<{
     person: { id: number; fullName: string };
-    jerseyNumber: string;
-    position: { name: string; abbreviation: string };
+    position: { abbreviation: string };
   }>;
 }
 
-export async function fetchRoster(
-  teamId: number,
-  season: number,
-): Promise<RosterPlayer[]> {
+export async function fetchRoster(teamId: number, season: number): Promise<PoolPlayer[]> {
   const data = await getJson<RosterResponse>(
     `/teams/${teamId}/roster?season=${season}&rosterType=fullSeason`,
   );
   return data.roster.map((entry) => ({
     id: entry.person.id,
     fullName: entry.person.fullName,
-    jerseyNumber: entry.jerseyNumber,
-    positionName: entry.position.name,
     positionAbbreviation: entry.position.abbreviation,
+  }));
+}
+
+interface StatLeadersResponse {
+  leagueLeaders: Array<{
+    leaders: Array<{
+      value: string;
+      person: { id: number; fullName: string };
+    }>;
+  }>;
+}
+
+export async function fetchStatLeaders(
+  leaderCategory: string,
+  statGroup: "hitting" | "pitching",
+  qualified: boolean,
+  statLabel: string,
+  season: number,
+  limit: number,
+): Promise<PoolPlayer[]> {
+  const qualifierParam = qualified ? "&playerPool=Qualified" : "";
+  const data = await getJson<StatLeadersResponse>(
+    `/stats/leaders?leaderCategories=${leaderCategory}&season=${season}&sportId=1&limit=${limit}` +
+      `&statGroup=${statGroup}${qualifierParam}`,
+  );
+  const leaders = data.leagueLeaders[0]?.leaders ?? [];
+  return leaders.map((entry) => ({
+    id: entry.person.id,
+    fullName: entry.person.fullName,
+    statLabel,
+    statValue: entry.value,
   }));
 }

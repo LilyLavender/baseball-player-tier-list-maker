@@ -1,7 +1,11 @@
 import { headshotUrl } from "../types/mlb";
-import type { RosterPlayer } from "../types/mlb";
+import type { PoolPlayer } from "../types/mlb";
 
-export function renderPlayerCard(player: RosterPlayer): string {
+export function renderPlayerCard(player: PoolPlayer): string {
+  const statBadge = player.statValue
+    ? `<span class="player-card__stat">${player.statValue}</span>`
+    : "";
+
   return `
     <div class="player-card" data-player-id="${player.id}">
       <img
@@ -12,6 +16,7 @@ export function renderPlayerCard(player: RosterPlayer): string {
         width="88"
         height="104"
       />
+      ${statBadge}
       <span class="player-card__name">${player.fullName}</span>
     </div>
   `;
