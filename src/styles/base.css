@@ -1,0 +1,25 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #f5f6f2;
+  color: #14213d;
+}
+
+.topbar {
+  background: #1b4332;
+  color: #f5f6f2;
+  padding: 1rem 1.5rem;
+}
+
+.topbar__wordmark {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.placeholder {
+  padding: 2rem 1.5rem;
+}
