@@ -351,6 +351,11 @@ body {
   user-select: none;
 }
 
+.pool__header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .pool__clear {
   font: inherit;
   font-size: 0.75rem;
@@ -363,9 +368,14 @@ body {
   cursor: pointer;
 }
 
-.pool__clear:hover {
+#clear-pool:hover {
   color: var(--color-danger);
   border-color: var(--color-danger);
+}
+
+#return-all-to-pool:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
 }
 
 .pool__placeholder {

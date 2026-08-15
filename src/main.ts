@@ -102,7 +102,10 @@ function renderPoolSection(poolContent: string): string {
     <section class="pool">
       <div class="pool__header">
         <h2 class="pool__heading">Unranked pool</h2>
-        <button id="clear-pool" type="button" class="pool__clear">Clear pool</button>
+        <div class="pool__header-actions">
+          <button id="return-all-to-pool" type="button" class="pool__clear">Return all to pool</button>
+          <button id="clear-pool" type="button" class="pool__clear">Clear pool</button>
+        </div>
       </div>
       <div id="pool-content">${poolContent}</div>
     </section>
@@ -112,6 +115,13 @@ function renderPoolSection(poolContent: string): string {
 function bindClearPoolButton(): void {
   document.querySelector<HTMLButtonElement>("#clear-pool")!.addEventListener("click", () => {
     setPoolContent(`<p class="pool__placeholder">Players will appear here once a query runs.</p>`);
+  });
+
+  document.querySelector<HTMLButtonElement>("#return-all-to-pool")!.addEventListener("click", () => {
+    const poolIds = collectPoolPlayerIds();
+    const tierIds = collectTierPlayerIds(currentTiers.length).flat();
+    const emptyTiers = currentTiers.map(() => []);
+    rerenderBoardAndPool(emptyTiers, playersFromIds([...poolIds, ...tierIds]));
   });
 }
 
