@@ -3,6 +3,7 @@ import { fetchRoster, fetchTeams } from "./api/mlbApi";
 import { bindQueryBuilder, renderQueryBuilder } from "./components/queryBuilder";
 import { renderPlayerPool } from "./components/playerPool";
 import { renderTierBoard } from "./components/tierBoard";
+import { initPoolSortable, initTierSortables } from "./dnd/dragAndDrop";
 import type { RosterPlayer } from "./types/mlb";
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -29,6 +30,7 @@ function renderShell(queryBuilderContent: string): void {
 
 function setPoolContent(html: string): void {
   document.querySelector<HTMLDivElement>("#pool-content")!.innerHTML = html;
+  initPoolSortable();
 }
 
 async function loadPool(teamId: number, season: number): Promise<void> {
@@ -55,6 +57,7 @@ async function init(): Promise<void> {
 
   const teams = await fetchTeams();
   renderShell(renderQueryBuilder(teams));
+  initTierSortables();
 
   bindQueryBuilder({
     onApply: (teamId, season) => {

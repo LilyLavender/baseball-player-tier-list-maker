@@ -113,11 +113,6 @@ body {
 .tier-row__cards {
   flex: 1;
   padding: 0.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #999;
-  font-size: 0.85rem;
 }
 
 .pool {
@@ -140,28 +135,37 @@ body {
   color: #666;
 }
 
-.pool__cards {
+.pool__cards,
+.tier-row__cards {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   gap: 0.5rem;
+  min-height: 100%;
+  width: 100%;
 }
 
-.pool__card {
+.player-card {
   display: flex;
   flex-direction: column;
   min-width: 7rem;
   padding: 0.5rem 0.75rem;
-  background: var(--color-bg);
+  background: var(--color-surface);
   border: 1px solid #ddd;
   border-radius: 3px;
   font-size: 0.85rem;
+  cursor: grab;
 }
 
-.pool__card-name {
+.player-card--ghost {
+  opacity: 0.4;
+}
+
+.player-card__name {
   font-weight: 600;
 }
 
-.pool__card-position {
+.player-card__position {
   font-family: var(--font-mono);
   font-size: 0.75rem;
   color: #666;
