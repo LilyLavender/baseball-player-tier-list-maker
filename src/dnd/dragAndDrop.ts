@@ -4,6 +4,7 @@ import { tierDropZoneIds } from "../components/tierBoard";
 const SHARED_GROUP = "players";
 
 let poolSortable: Sortable | null = null;
+let trashSortable: Sortable | null = null;
 const tierSortables: Sortable[] = [];
 
 function createSortable(element: HTMLElement): Sortable {
@@ -30,4 +31,22 @@ export function initPoolSortable(): void {
   poolSortable?.destroy();
   const element = document.getElementById("pool-cards");
   poolSortable = element ? createSortable(element) : null;
+}
+
+export function initTrashSortable(): void {
+  trashSortable?.destroy();
+  const element = document.getElementById("trash-zone");
+  if (!element) {
+    trashSortable = null;
+    return;
+  }
+
+  trashSortable = Sortable.create(element, {
+    group: SHARED_GROUP,
+    animation: 150,
+    ghostClass: "player-card--ghost",
+    onAdd: (event) => {
+      event.item.remove();
+    },
+  });
 }

@@ -9,11 +9,10 @@ export function renderPlayerCard(player: RosterPlayer): string {
         src="${headshotUrl(player.id)}"
         alt=""
         loading="lazy"
-        width="60"
-        height="60"
+        width="88"
+        height="104"
       />
       <span class="player-card__name">${player.fullName}</span>
-      <span class="player-card__position">${player.positionAbbreviation}</span>
     </div>
   `;
 }

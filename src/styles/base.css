@@ -4,6 +4,10 @@
   box-sizing: border-box;
 }
 
+button {
+  user-select: none;
+}
+
 body {
   margin: 0;
   font-family: var(--font-body);
@@ -26,6 +30,7 @@ body {
   font-size: 1.25rem;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+  user-select: none;
 }
 
 .topbar__save {
@@ -62,6 +67,7 @@ body {
   letter-spacing: 0.05em;
   color: var(--color-primary);
   margin: 0 0 0.75rem;
+  user-select: none;
 }
 
 .query-builder__placeholder {
@@ -123,6 +129,7 @@ body {
   font-weight: 700;
   color: var(--color-chalk-white);
   background: var(--tier-color, var(--color-primary));
+  user-select: none;
 }
 
 .tier-row__cards {
@@ -143,6 +150,7 @@ body {
   letter-spacing: 0.05em;
   color: var(--color-primary);
   margin: 0 0 0.5rem;
+  user-select: none;
 }
 
 .pool__placeholder {
@@ -161,40 +169,62 @@ body {
 }
 
 .player-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  position: relative;
   width: 5.5rem;
-  padding: 0.4rem;
-  background: var(--color-surface);
+  height: 6.5rem;
+  overflow: hidden;
   border: 1px solid #ddd;
   border-radius: 3px;
-  font-size: 0.75rem;
-  text-align: center;
   cursor: grab;
+  user-select: none;
 }
 
 .player-card__headshot {
-  width: 3.75rem;
-  height: 3.75rem;
-  border-radius: 50%;
+  display: block;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  background: var(--color-bg);
-  margin-bottom: 0.3rem;
+  object-position: top center;
+  background: #acacb2;
 }
 
 .player-card--ghost {
   opacity: 0.4;
 }
 
-.player-card__name {
+.trash-zone {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  width: 9rem;
+  min-height: 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  background: var(--color-surface);
+  border: 2px dashed var(--color-stitch-red);
+  border-radius: 4px;
+  color: var(--color-stitch-red);
   font-family: var(--font-display);
-  font-weight: 700;
-  line-height: 1.1;
+  font-size: 0.8rem;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  user-select: none;
 }
 
-.player-card__position {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: #666;
+.player-card__name {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0.2rem 0.35rem 0.25rem;
+  background: linear-gradient(to top, rgba(20, 33, 61, 0.9), rgba(20, 33, 61, 0));
+  color: var(--color-chalk-white);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.7rem;
+  line-height: 1.15;
+  text-align: left;
 }

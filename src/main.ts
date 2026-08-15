@@ -3,7 +3,7 @@ import { fetchRoster, fetchTeams } from "./api/mlbApi";
 import { bindQueryBuilder, renderQueryBuilder } from "./components/queryBuilder";
 import { renderPlayerPool } from "./components/playerPool";
 import { renderTierBoard } from "./components/tierBoard";
-import { initPoolSortable, initTierSortables } from "./dnd/dragAndDrop";
+import { initPoolSortable, initTierSortables, initTrashSortable } from "./dnd/dragAndDrop";
 import { collectPoolPlayerIds, collectTierPlayerIds } from "./storage/collectBoardState";
 import { loadActiveList, saveActiveList } from "./storage/activeList";
 import type { RosterPlayer } from "./types/mlb";
@@ -38,9 +38,11 @@ function renderShell(
         </section>
       </div>
     </div>
+    <div id="trash-zone" class="trash-zone">Drag here to remove</div>
   `;
   initTierSortables();
   initPoolSortable();
+  initTrashSortable();
 
   document.querySelector<HTMLButtonElement>("#save-list")!.addEventListener("click", () => {
     saveActiveList({

@@ -44,7 +44,7 @@ export async function fetchRoster(
   season: number,
 ): Promise<RosterPlayer[]> {
   const data = await getJson<RosterResponse>(
-    `/teams/${teamId}/roster?season=${season}`,
+    `/teams/${teamId}/roster?season=${season}&rosterType=fullSeason`,
   );
   return data.roster.map((entry) => ({
     id: entry.person.id,
