@@ -1,14 +1,23 @@
 import type { Team } from "../types/mlb";
 import { teamLogoUrl } from "../types/mlb";
 import { fetchTeams } from "../api/mlbApi";
-import { STAT_CATEGORIES } from "../data/statCategories";
+import { qualifierFor, STAT_CATEGORIES } from "../data/statCategories";
 import { bindComboBox, getComboBoxValue, renderComboBox, setComboBoxOptions } from "./comboBox";
 import type { ComboBoxOption } from "./comboBox";
 import type { AutoTierStrategy } from "../tiering/autoTier";
 
+export interface StatQueryParams {
+  statCategoryId: string;
+  season: number;
+  limit: number;
+  qualified: boolean;
+  minValue?: number;
+  minQualifierValue?: number;
+}
+
 export interface QueryBuilderCallbacks {
   onApplyTeam: (teamId: number | "all", season: number) => void;
-  onApplyStat: (statCategoryId: string, season: number, limit: number) => void;
+  onApplyStat: (params: StatQueryParams) => void;
   onGenerateAutoTiers: (strategy: AutoTierStrategy) => void;
 }
 
@@ -74,6 +83,18 @@ export function renderQueryBuilder(
         <option value="${ALL_LIMIT}">All</option>
       </select>
     </label>
+    <label class="query-builder__field">
+      Min <span id="qb-stat-value-label">value</span>
+      <input id="qb-stat-min-value" type="number" placeholder="No minimum" step="any" />
+    </label>
+    <label class="query-builder__field query-builder__field--checkbox">
+      <input id="qb-stat-qualified" type="checkbox" />
+      Use official qualified minimum
+    </label>
+    <label class="query-builder__field">
+      Min <span id="qb-stat-qualifier-label">Plate Appearances</span>
+      <input id="qb-stat-min-qualifier" type="number" placeholder="No minimum" step="any" />
+    </label>
     <button id="qb-stat-apply" type="button">Apply</button>
 
     <h2 class="query-builder__heading query-builder__heading--stat">Auto-tier from pool</h2>
@@ -95,13 +116,31 @@ export function renderQueryBuilder(
       Thresholds (comma-separated)
       <input id="qb-autotier-thresholds" type="text" placeholder="e.g. 40, 30, 20, 10" />
     </label>
+    <label class="query-builder__field" id="qb-autotier-scheme-field" hidden>
+      Tier scheme
+      <select id="qb-autotier-scheme">
+        <option value="sf">S-F (6 tiers)</option>
+        <option value="sf-plus-minus">S-F with +/- (up to 18 tiers)</option>
+      </select>
+    </label>
     <button id="qb-autotier-apply" type="button">Generate Tiers</button>
   `;
 }
 
+function applyStatFieldDefaults(statId: string): void {
+  const stat = STAT_CATEGORIES.find((s) => s.id === statId);
+  if (!stat) return;
+
+  const qualifier = qualifierFor(stat.group);
+  document.querySelector("#qb-stat-value-label")!.textContent = stat.label;
+  document.querySelector("#qb-stat-qualifier-label")!.textContent = qualifier.label;
+  document.querySelector<HTMLInputElement>("#qb-stat-qualified")!.checked = stat.qualified;
+}
+
 export function bindQueryBuilder(teams: Team[], callbacks: QueryBuilderCallbacks): void {
   bindComboBox("qb-team", teamOptions(teams), () => {});
-  bindComboBox("qb-stat", statOptions(), () => {});
+  bindComboBox("qb-stat", statOptions(), (statId) => applyStatFieldDefaults(statId));
+  applyStatFieldDefaults(getComboBoxValue("qb-stat"));
 
   const seasonInput = document.querySelector<HTMLInputElement>("#qb-season")!;
   const applyButton = document.querySelector<HTMLButtonElement>("#qb-apply")!;
@@ -131,12 +170,23 @@ export function bindQueryBuilder(teams: Team[], callbacks: QueryBuilderCallbacks
 
   const statSeasonInput = document.querySelector<HTMLInputElement>("#qb-stat-season")!;
   const statLimitSelect = document.querySelector<HTMLSelectElement>("#qb-stat-limit")!;
+  const statMinValueInput = document.querySelector<HTMLInputElement>("#qb-stat-min-value")!;
+  const statQualifiedCheckbox = document.querySelector<HTMLInputElement>("#qb-stat-qualified")!;
+  const statMinQualifierInput = document.querySelector<HTMLInputElement>("#qb-stat-min-qualifier")!;
   const statApplyButton = document.querySelector<HTMLButtonElement>("#qb-stat-apply")!;
 
   statApplyButton.addEventListener("click", () => {
     const statId = getComboBoxValue("qb-stat");
     if (!statId) return;
-    callbacks.onApplyStat(statId, Number(statSeasonInput.value), Number(statLimitSelect.value));
+    callbacks.onApplyStat({
+      statCategoryId: statId,
+      season: Number(statSeasonInput.value),
+      limit: Number(statLimitSelect.value),
+      qualified: statQualifiedCheckbox.checked,
+      minValue: statMinValueInput.value === "" ? undefined : Number(statMinValueInput.value),
+      minQualifierValue:
+        statMinQualifierInput.value === "" ? undefined : Number(statMinQualifierInput.value),
+    });
   });
 
   const strategySelect = document.querySelector<HTMLSelectElement>("#qb-autotier-strategy")!;
@@ -144,11 +194,14 @@ export function bindQueryBuilder(teams: Team[], callbacks: QueryBuilderCallbacks
   const intervalInput = document.querySelector<HTMLInputElement>("#qb-autotier-interval")!;
   const thresholdsField = document.querySelector<HTMLLabelElement>("#qb-autotier-thresholds-field")!;
   const thresholdsInput = document.querySelector<HTMLInputElement>("#qb-autotier-thresholds")!;
+  const schemeField = document.querySelector<HTMLLabelElement>("#qb-autotier-scheme-field")!;
+  const schemeSelect = document.querySelector<HTMLSelectElement>("#qb-autotier-scheme")!;
   const autoTierApplyButton = document.querySelector<HTMLButtonElement>("#qb-autotier-apply")!;
 
   strategySelect.addEventListener("change", () => {
     intervalField.hidden = strategySelect.value !== "interval";
     thresholdsField.hidden = strategySelect.value !== "thresholds";
+    schemeField.hidden = strategySelect.value !== "auto-grouping";
   });
 
   autoTierApplyButton.addEventListener("click", () => {
@@ -158,7 +211,8 @@ export function bindQueryBuilder(teams: Team[], callbacks: QueryBuilderCallbacks
     } else if (kind === "per-unit") {
       callbacks.onGenerateAutoTiers({ kind: "per-unit" });
     } else if (kind === "auto-grouping") {
-      callbacks.onGenerateAutoTiers({ kind: "auto-grouping" });
+      const scheme = schemeSelect.value === "sf-plus-minus" ? "sf-plus-minus" : "sf";
+      callbacks.onGenerateAutoTiers({ kind: "auto-grouping", scheme });
     } else if (kind === "thresholds") {
       const thresholds = thresholdsInput.value
         .split(",")

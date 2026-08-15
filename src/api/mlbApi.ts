@@ -73,27 +73,46 @@ interface StatSplitsResponse {
   }>;
 }
 
-export async function fetchStatLeaders(
-  sortStat: string,
-  statKey: string,
-  statGroup: "hitting" | "pitching",
-  order: "asc" | "desc",
-  qualified: boolean,
-  statLabel: string,
-  season: number,
-  limit: number,
-): Promise<PoolPlayer[]> {
-  const qualifierParam = qualified ? "&playerPool=Qualified" : "";
+export interface StatLeadersQuery {
+  sortStat: string;
+  statKey: string;
+  statGroup: "hitting" | "pitching";
+  order: "asc" | "desc";
+  statLabel: string;
+  season: number;
+  limit: number;
+  /** Use MLB's official qualified-player minimum (PA/IP threshold). */
+  qualified: boolean;
+  /** Only include players whose sort-stat value is at least this. */
+  minValue?: number;
+  /** Secondary field to filter on, e.g. inningsPitched or plateAppearances. */
+  qualifierKey?: string;
+  minQualifierValue?: number;
+}
+
+export async function fetchStatLeaders(query: StatLeadersQuery): Promise<PoolPlayer[]> {
+  const qualifierParam = query.qualified ? "&playerPool=Qualified" : "";
   const data = await getJson<StatSplitsResponse>(
-    `/stats?stats=season&group=${statGroup}&season=${season}&sportId=1&limit=${limit}` +
-      `&sortStat=${sortStat}&order=${order}${qualifierParam}`,
+    `/stats?stats=season&group=${query.statGroup}&season=${query.season}&sportId=1&limit=${query.limit}` +
+      `&sortStat=${query.sortStat}&order=${query.order}${qualifierParam}`,
   );
-  const splits = data.stats[0]?.splits ?? [];
+  let splits = data.stats[0]?.splits ?? [];
+
+  if (query.minValue !== undefined) {
+    const min = query.minValue;
+    splits = splits.filter((entry) => parseFloat(String(entry.stat[query.statKey])) >= min);
+  }
+  if (query.qualifierKey && query.minQualifierValue !== undefined) {
+    const key = query.qualifierKey;
+    const min = query.minQualifierValue;
+    splits = splits.filter((entry) => parseFloat(String(entry.stat[key])) >= min);
+  }
+
   return splits.map((entry) => ({
     id: entry.player.id,
     fullName: entry.player.fullName,
-    statLabel,
-    statValue: String(entry.stat[statKey] ?? ""),
-    season,
+    statLabel: query.statLabel,
+    statValue: String(entry.stat[query.statKey] ?? ""),
+    season: query.season,
   }));
 }

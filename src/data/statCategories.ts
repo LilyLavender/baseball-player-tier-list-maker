@@ -11,6 +11,17 @@ export interface StatCategory {
   qualified: boolean;
 }
 
+export interface Qualifier {
+  key: string;
+  label: string;
+}
+
+export function qualifierFor(group: "hitting" | "pitching"): Qualifier {
+  return group === "pitching"
+    ? { key: "inningsPitched", label: "Innings Pitched" }
+    : { key: "plateAppearances", label: "Plate Appearances" };
+}
+
 export const STAT_CATEGORIES: StatCategory[] = [
   // Hitting
   { id: "hr", sortStat: "homeRuns", statKey: "homeRuns", label: "Home Runs", group: "hitting", order: "desc", qualified: false },

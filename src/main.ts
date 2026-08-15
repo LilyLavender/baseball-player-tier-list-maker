@@ -1,6 +1,7 @@
 import "./styles/base.css";
 import { fetchAllTeamsRoster, fetchRoster, fetchStatLeaders, fetchTeams } from "./api/mlbApi";
 import { bindQueryBuilder, renderQueryBuilder } from "./components/queryBuilder";
+import type { StatQueryParams } from "./components/queryBuilder";
 import { renderPlayerPool } from "./components/playerPool";
 import { bindTierBoard, renderTierBoard, tierDropZoneIds } from "./components/tierBoard";
 import {
@@ -23,7 +24,7 @@ import {
 import { applyTheme, loadThemePref, saveThemePref } from "./storage/themePref";
 import type { ThemeName } from "./storage/themePref";
 import { bindHistoryPanel, renderHistoryPanel } from "./components/historyPanel";
-import { STAT_CATEGORIES } from "./data/statCategories";
+import { qualifierFor, STAT_CATEGORIES } from "./data/statCategories";
 import { cloneDefaultTiers } from "./data/tiers";
 import type { TierDefinition } from "./data/tiers";
 import { describeQuery } from "./utils/queryLabel";
@@ -96,17 +97,33 @@ function bindTierBoardCallbacks(): void {
   });
 }
 
+function renderPoolSection(poolContent: string): string {
+  return `
+    <section class="pool">
+      <div class="pool__header">
+        <h2 class="pool__heading">Unranked pool</h2>
+        <button id="clear-pool" type="button" class="pool__clear">Clear pool</button>
+      </div>
+      <div id="pool-content">${poolContent}</div>
+    </section>
+  `;
+}
+
+function bindClearPoolButton(): void {
+  document.querySelector<HTMLButtonElement>("#clear-pool")!.addEventListener("click", () => {
+    setPoolContent(`<p class="pool__placeholder">Players will appear here once a query runs.</p>`);
+  });
+}
+
 function rerenderBoardAndPool(tierPlayers: PoolPlayer[][], poolPlayers: PoolPlayer[]): void {
   const boardWrap = document.querySelector<HTMLDivElement>(".board-wrap")!;
   boardWrap.innerHTML = `
     ${renderTierBoard(currentTiers, tierPlayers)}
-    <section class="pool">
-      <h2 class="pool__heading">Unranked pool</h2>
-      <div id="pool-content">${renderPlayerPool(poolPlayers)}</div>
-    </section>
+    ${renderPoolSection(renderPlayerPool(poolPlayers))}
   `;
   initTierSortables(tierDropZoneIds(currentTiers.length));
   initPoolSortable();
+  bindClearPoolButton();
   bindTierBoardCallbacks();
 }
 
@@ -180,10 +197,7 @@ function renderShell(
       </aside>
       <div class="board-wrap">
         ${renderTierBoard(currentTiers, tierPlayers)}
-        <section class="pool">
-          <h2 class="pool__heading">Unranked pool</h2>
-          <div id="pool-content">${poolContent}</div>
-        </section>
+        ${renderPoolSection(poolContent)}
       </div>
     </div>
   `;
@@ -191,6 +205,7 @@ function renderShell(
   initPoolSortable();
   initRemoveZoneSortable();
   bindTierBoardCallbacks();
+  bindClearPoolButton();
 
   document.querySelector<HTMLButtonElement>("#save-list")!.addEventListener("click", () => {
     let title = currentListId ? getSavedList(currentListId)?.title : undefined;
@@ -283,25 +298,33 @@ async function loadTeamPool(teamId: number | "all", season: number): Promise<voi
   setPoolContent(renderPlayerPool(players));
 }
 
-async function loadStatPool(statCategoryId: string, season: number, limit: number): Promise<void> {
-  const stat = STAT_CATEGORIES.find((s) => s.id === statCategoryId);
+async function loadStatPool(params: StatQueryParams): Promise<void> {
+  const stat = STAT_CATEGORIES.find((s) => s.id === params.statCategoryId);
   if (!stat) return;
 
-  currentQuery = { kind: "stat", statCategoryId, season, limit };
+  currentQuery = {
+    kind: "stat",
+    statCategoryId: params.statCategoryId,
+    season: params.season,
+    limit: params.limit,
+  };
   setPoolContent(`<p class="pool__placeholder">Loading leaders…</p>`);
 
   let players: PoolPlayer[] = [];
   try {
-    players = await fetchStatLeaders(
-      stat.sortStat,
-      stat.statKey,
-      stat.group,
-      stat.order,
-      stat.qualified,
-      stat.label,
-      season,
-      limit,
-    );
+    players = await fetchStatLeaders({
+      sortStat: stat.sortStat,
+      statKey: stat.statKey,
+      statGroup: stat.group,
+      order: stat.order,
+      statLabel: stat.label,
+      season: params.season,
+      limit: params.limit,
+      qualified: params.qualified,
+      minValue: params.minValue,
+      qualifierKey: qualifierFor(stat.group).key,
+      minQualifierValue: params.minQualifierValue,
+    });
   } catch (error) {
     setPoolContent(
       `<p class="pool__placeholder">Couldn't load that leaderboard. Try a different stat or season.</p>`,
@@ -337,8 +360,8 @@ function bindQueryBuilderCallbacks(): void {
     onApplyTeam: (teamId, season) => {
       void loadTeamPool(teamId, season);
     },
-    onApplyStat: (statCategoryId, season, limit) => {
-      void loadStatPool(statCategoryId, season, limit);
+    onApplyStat: (params) => {
+      void loadStatPool(params);
     },
     onGenerateAutoTiers: (strategy) => {
       applyAutoTiers(strategy);

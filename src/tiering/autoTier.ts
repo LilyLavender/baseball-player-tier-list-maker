@@ -1,10 +1,12 @@
 import type { PoolPlayer } from "../types/mlb";
 import type { TierDefinition } from "../data/tiers";
 
+export type AutoTierScheme = "sf" | "sf-plus-minus";
+
 export type AutoTierStrategy =
   | { kind: "interval"; size: number }
   | { kind: "per-unit" }
-  | { kind: "auto-grouping" }
+  | { kind: "auto-grouping"; scheme: AutoTierScheme }
   | { kind: "thresholds"; thresholds: number[] };
 
 export interface AutoTierResult {
@@ -67,8 +69,11 @@ function bucketByUnit(entries: ValuedEntry[], order: "asc" | "desc"): Bucket[] {
   return keys.map((key) => ({ label: String(key), entries: groups.get(key)! }));
 }
 
-function bucketByAutoGrouping(entries: ValuedEntry[]): Bucket[] {
-  const labels = ["S", "A", "B", "C", "D", "F"];
+const SF_LABELS = ["S", "A", "B", "C", "D", "F"];
+const SF_PLUS_MINUS_LABELS = SF_LABELS.flatMap((letter) => [`${letter}+`, letter, `${letter}-`]);
+
+function bucketByAutoGrouping(entries: ValuedEntry[], scheme: AutoTierScheme): Bucket[] {
+  const labels = scheme === "sf-plus-minus" ? SF_PLUS_MINUS_LABELS : SF_LABELS;
   const perGroup = Math.ceil(entries.length / labels.length);
   const buckets: Bucket[] = [];
   for (let i = 0; i < labels.length; i++) {
@@ -136,7 +141,7 @@ export function generateAutoTiers(
       buckets = bucketByUnit(entries, order);
       break;
     case "auto-grouping":
-      buckets = bucketByAutoGrouping(entries);
+      buckets = bucketByAutoGrouping(entries, strategy.scheme);
       break;
     case "thresholds":
       buckets = bucketByThresholds(entries, order, strategy.thresholds);
