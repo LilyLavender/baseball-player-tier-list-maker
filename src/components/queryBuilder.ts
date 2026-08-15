@@ -6,18 +6,20 @@ import { bindComboBox, getComboBoxValue, renderComboBox, setComboBoxOptions } fr
 import type { ComboBoxOption } from "./comboBox";
 
 export interface QueryBuilderCallbacks {
-  onApplyTeam: (teamId: number, season: number) => void;
+  onApplyTeam: (teamId: number | "all", season: number) => void;
   onApplyStat: (statCategoryId: string, season: number, limit: number) => void;
 }
 
 const CURRENT_YEAR = new Date().getFullYear();
 const ALL_LIMIT = 1000;
+const ALL_TEAMS_VALUE = "all";
 
 function teamOptions(teams: Team[]): ComboBoxOption[] {
-  return teams
+  const sorted = teams
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((team) => ({ value: String(team.id), label: team.name, iconUrl: teamLogoUrl(team.id) }));
+  return [{ value: ALL_TEAMS_VALUE, label: "All Teams" }, ...sorted];
 }
 
 function statOptions(): ComboBoxOption[] {
@@ -29,7 +31,7 @@ function statOptions(): ComboBoxOption[] {
 
 export function renderQueryBuilder(
   teams: Team[],
-  selectedTeamQuery?: { teamId: number; season: number },
+  selectedTeamQuery?: { teamId: number | "all"; season: number },
 ): string {
   const teamSeason = selectedTeamQuery?.season ?? CURRENT_YEAR;
 
@@ -97,8 +99,9 @@ export function bindQueryBuilder(teams: Team[], callbacks: QueryBuilderCallbacks
   });
 
   applyButton.addEventListener("click", () => {
-    const teamId = Number(getComboBoxValue("qb-team"));
-    if (!teamId) return;
+    const teamValue = getComboBoxValue("qb-team");
+    if (!teamValue) return;
+    const teamId = teamValue === ALL_TEAMS_VALUE ? ALL_TEAMS_VALUE : Number(teamValue);
     callbacks.onApplyTeam(teamId, Number(seasonInput.value));
   });
 

@@ -1,5 +1,5 @@
 import "./styles/base.css";
-import { fetchRoster, fetchStatLeaders, fetchTeams } from "./api/mlbApi";
+import { fetchAllTeamsRoster, fetchRoster, fetchStatLeaders, fetchTeams } from "./api/mlbApi";
 import { bindQueryBuilder, renderQueryBuilder } from "./components/queryBuilder";
 import { renderPlayerPool } from "./components/playerPool";
 import { bindTierBoard, renderTierBoard, tierDropZoneIds } from "./components/tierBoard";
@@ -171,6 +171,7 @@ function renderShell(
             <span class="remove-zone__icon" aria-hidden="true">🗑</span>
             <span>Remove player</span>
           </div>
+          <div id="remove-zone-drop" class="remove-zone__drop"></div>
         </div>
       </aside>
       <div class="board-wrap">
@@ -236,13 +237,15 @@ function setPoolContent(html: string): void {
   initPoolSortable();
 }
 
-async function loadTeamPool(teamId: number, season: number): Promise<void> {
+async function loadTeamPool(teamId: number | "all", season: number): Promise<void> {
   currentQuery = { kind: "team", teamId, season };
-  setPoolContent(`<p class="pool__placeholder">Loading roster…</p>`);
+  setPoolContent(
+    `<p class="pool__placeholder">${teamId === "all" ? "Loading all rosters…" : "Loading roster…"}</p>`,
+  );
 
   let players: PoolPlayer[] = [];
   try {
-    players = await fetchRoster(teamId, season);
+    players = teamId === "all" ? await fetchAllTeamsRoster(season) : await fetchRoster(teamId, season);
   } catch (error) {
     setPoolContent(
       `<p class="pool__placeholder">Couldn't load that roster. Try a different team or season.</p>`,

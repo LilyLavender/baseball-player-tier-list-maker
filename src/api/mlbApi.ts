@@ -51,6 +51,19 @@ export async function fetchRoster(teamId: number, season: number): Promise<PoolP
   }));
 }
 
+export async function fetchAllTeamsRoster(season: number): Promise<PoolPlayer[]> {
+  const teams = await fetchTeams(season);
+  const rosters = await Promise.all(teams.map((team) => fetchRoster(team.id, season)));
+
+  const byId = new Map<number, PoolPlayer>();
+  for (const roster of rosters) {
+    for (const player of roster) {
+      if (!byId.has(player.id)) byId.set(player.id, player);
+    }
+  }
+  return Array.from(byId.values());
+}
+
 interface StatSplitsResponse {
   stats: Array<{
     splits: Array<{

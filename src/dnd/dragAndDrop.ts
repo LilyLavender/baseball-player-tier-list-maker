@@ -67,7 +67,7 @@ export function initPoolSortable(): void {
 
 export function initRemoveZoneSortable(): void {
   removeSortable?.destroy();
-  const element = removeZoneElement();
+  const element = document.getElementById("remove-zone-drop");
   if (!element) {
     removeSortable = null;
     return;
