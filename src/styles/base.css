@@ -353,7 +353,47 @@ body {
 
 .pool__header-actions {
   display: flex;
+  align-items: center;
   gap: 0.5rem;
+}
+
+.player-search {
+  position: relative;
+}
+
+.player-search__input {
+  font: inherit;
+  font-size: 0.8rem;
+  width: 12rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.player-search__results {
+  position: absolute;
+  top: calc(100% + 0.2rem);
+  right: 0;
+  width: 16rem;
+  max-height: 14rem;
+  overflow-y: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  z-index: 20;
+}
+
+.player-search__result {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.player-search__result:hover {
+  background: var(--color-bg);
 }
 
 .pool__clear {

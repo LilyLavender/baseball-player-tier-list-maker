@@ -51,6 +51,21 @@ export async function fetchRoster(teamId: number, season: number): Promise<PoolP
   }));
 }
 
+interface PeopleSearchResponse {
+  people: Array<{ id: number; fullName: string }>;
+}
+
+export async function searchPlayers(query: string): Promise<PoolPlayer[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return [];
+
+  const data = await getJson<PeopleSearchResponse>(`/people/search?names=${encodeURIComponent(trimmed)}`);
+  return data.people.map((person) => ({
+    id: person.id,
+    fullName: person.fullName,
+  }));
+}
+
 export async function fetchAllTeamsRoster(season: number): Promise<PoolPlayer[]> {
   const teams = await fetchTeams(season);
   const rosters = await Promise.all(teams.map((team) => fetchRoster(team.id, season)));

@@ -3,6 +3,7 @@ import { fetchAllTeamsRoster, fetchRoster, fetchStatLeaders, fetchTeams } from "
 import { bindQueryBuilder, renderQueryBuilder } from "./components/queryBuilder";
 import type { StatQueryParams } from "./components/queryBuilder";
 import { renderPlayerPool } from "./components/playerPool";
+import { bindPlayerSearch, renderPlayerSearch } from "./components/playerSearch";
 import { bindTierBoard, renderTierBoard, tierDropZoneIds } from "./components/tierBoard";
 import {
   initPoolSortable,
@@ -103,6 +104,7 @@ function renderPoolSection(poolContent: string): string {
       <div class="pool__header">
         <h2 class="pool__heading">Unranked pool</h2>
         <div class="pool__header-actions">
+          ${renderPlayerSearch()}
           <button id="return-all-to-pool" type="button" class="pool__clear">Return all to pool</button>
           <button id="clear-pool" type="button" class="pool__clear">Clear pool</button>
         </div>
@@ -122,6 +124,18 @@ function bindClearPoolButton(): void {
     const tierIds = collectTierPlayerIds(currentTiers.length).flat();
     const emptyTiers = currentTiers.map(() => []);
     rerenderBoardAndPool(emptyTiers, playersFromIds([...poolIds, ...tierIds]));
+  });
+
+  bindPlayerSearch((player) => {
+    rememberPlayers([player]);
+    const existingIds = new Set([
+      ...collectPoolPlayerIds(),
+      ...collectTierPlayerIds(currentTiers.length).flat(),
+    ]);
+    if (existingIds.has(player.id)) return;
+
+    const poolPlayers = playersFromIds(collectPoolPlayerIds());
+    setPoolContent(renderPlayerPool([...poolPlayers, player]));
   });
 }
 
