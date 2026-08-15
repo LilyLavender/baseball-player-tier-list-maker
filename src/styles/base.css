@@ -77,6 +77,12 @@ body {
   filter: brightness(0.95);
 }
 
+.topbar__save:disabled,
+.topbar__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .layout {
   display: grid;
   grid-template-columns: 260px 1fr;

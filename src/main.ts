@@ -27,6 +27,7 @@ import { STAT_CATEGORIES } from "./data/statCategories";
 import { cloneDefaultTiers } from "./data/tiers";
 import type { TierDefinition } from "./data/tiers";
 import { describeQuery } from "./utils/queryLabel";
+import { exportTierListAsPng } from "./export/exportImage";
 import type { PoolPlayer, Team } from "./types/mlb";
 
 applyTheme(loadThemePref());
@@ -160,6 +161,7 @@ function renderShell(
         </select>
         <button id="new-list" type="button" class="topbar__btn">New</button>
         <button id="history-open" type="button" class="topbar__btn">History</button>
+        <button id="export-list" type="button" class="topbar__btn">Export</button>
         <button id="save-list" type="button" class="topbar__save">Save</button>
       </div>
     </header>
@@ -221,6 +223,27 @@ function renderShell(
 
   document.querySelector<HTMLButtonElement>("#history-open")!.addEventListener("click", () => {
     openHistoryPanel();
+  });
+
+  document.querySelector<HTMLButtonElement>("#export-list")!.addEventListener("click", (event) => {
+    const button = event.currentTarget as HTMLButtonElement;
+    const title =
+      (currentListId && getSavedList(currentListId)?.title) || describeQuery(currentQuery, teams);
+    const tierPlayers = collectTierPlayerIds(currentTiers.length).map(playersFromIds);
+
+    button.disabled = true;
+    const originalLabel = button.textContent;
+    button.textContent = "Exporting…";
+
+    exportTierListAsPng(title, currentTiers, tierPlayers)
+      .catch((error) => {
+        console.error(error);
+        window.alert("Couldn't export the tier list. Try again.");
+      })
+      .finally(() => {
+        button.disabled = false;
+        button.textContent = originalLabel;
+      });
   });
 
   const themeSelect = document.querySelector<HTMLSelectElement>("#theme-select")!;
