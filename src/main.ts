@@ -9,6 +9,7 @@ import {
   initPoolSortable,
   initRemoveZoneSortable,
   initTierSortables,
+  setOnBoardChange,
 } from "./dnd/dragAndDrop";
 import { collectPoolPlayerIds, collectTierPlayerIds } from "./storage/collectBoardState";
 import type { ActiveQuery } from "./storage/activeQuery";
@@ -24,6 +25,7 @@ import {
 } from "./storage/savedLists";
 import { applyTheme, loadThemePref, saveThemePref } from "./storage/themePref";
 import type { ThemeName } from "./storage/themePref";
+import { applyStatBadgePref, loadStatBadgePref, saveStatBadgePref } from "./storage/statBadgePref";
 import { bindHistoryPanel, renderHistoryPanel } from "./components/historyPanel";
 import { qualifierFor, STAT_CATEGORIES } from "./data/statCategories";
 import { cloneDefaultTiers } from "./data/tiers";
@@ -35,6 +37,7 @@ import type { AutoTierStrategy } from "./tiering/autoTier";
 import type { PoolPlayer, Team } from "./types/mlb";
 
 applyTheme(loadThemePref());
+applyStatBadgePref(loadStatBadgePref());
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const playersById = new Map<number, PoolPlayer>();
@@ -102,7 +105,7 @@ function renderPoolSection(poolContent: string): string {
   return `
     <section class="pool">
       <div class="pool__header">
-        <h2 class="pool__heading">Unranked pool</h2>
+        <h2 class="pool__heading">Unranked pool <span id="pool-count" class="pool__count"></span></h2>
         <div class="pool__header-actions">
           ${renderPlayerSearch()}
           <button id="return-all-to-pool" type="button" class="pool__clear">Return all to pool</button>
@@ -149,6 +152,7 @@ function rerenderBoardAndPool(tierPlayers: PoolPlayer[][], poolPlayers: PoolPlay
   initPoolSortable();
   bindClearPoolButton();
   bindTierBoardCallbacks();
+  updatePoolCount();
 }
 
 function openHistoryPanel(): void {
@@ -202,6 +206,10 @@ function renderShell(
           <option value="light">Classic Light</option>
           <option value="dark">Classic Dark</option>
         </select>
+        <label class="topbar__checkbox">
+          <input id="stat-badge-toggle" type="checkbox" />
+          Show stat numbers
+        </label>
         <button id="new-list" type="button" class="topbar__btn">New</button>
         <button id="history-open" type="button" class="topbar__btn">History</button>
         <button id="export-list" type="button" class="topbar__btn">Export</button>
@@ -294,11 +302,26 @@ function renderShell(
     applyTheme(theme);
     saveThemePref(theme);
   });
+
+  const statBadgeToggle = document.querySelector<HTMLInputElement>("#stat-badge-toggle")!;
+  statBadgeToggle.checked = loadStatBadgePref();
+  statBadgeToggle.addEventListener("change", () => {
+    applyStatBadgePref(statBadgeToggle.checked);
+    saveStatBadgePref(statBadgeToggle.checked);
+  });
+}
+
+function updatePoolCount(): void {
+  const countEl = document.querySelector<HTMLSpanElement>("#pool-count");
+  if (!countEl) return;
+  const count = document.querySelectorAll("#pool-content .player-card").length;
+  countEl.textContent = `(${count})`;
 }
 
 function setPoolContent(html: string): void {
   document.querySelector<HTMLDivElement>("#pool-content")!.innerHTML = html;
   initPoolSortable();
+  updatePoolCount();
 }
 
 async function loadTeamPool(teamId: number | "all", season: number): Promise<void> {
@@ -435,4 +458,5 @@ async function init(): Promise<void> {
   bindQueryBuilderCallbacks();
 }
 
+setOnBoardChange(updatePoolCount);
 void init();

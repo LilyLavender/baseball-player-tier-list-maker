@@ -85,10 +85,10 @@ export function renderQueryBuilder(
       Top N
       <select id="qb-stat-limit">
         <option value="10">Top 10</option>
-        <option value="25" selected>Top 25</option>
+        <option value="25">Top 25</option>
         <option value="50">Top 50</option>
         <option value="100">Top 100</option>
-        <option value="${ALL_LIMIT}">All</option>
+        <option value="${ALL_LIMIT}" selected>All</option>
       </select>
     </label>
     <label class="query-builder__field">
@@ -133,6 +133,23 @@ export function renderQueryBuilder(
     </label>
     <button id="qb-autotier-apply" type="button">Generate Tiers</button>
   `;
+}
+
+/**
+ * Shows `element` only when `select`'s current value matches one of `visibleFor`, and keeps it in
+ * sync on every change. Runs once immediately so the initial hidden state always matches the
+ * select's initial value, even if that doesn't match the field's hardcoded `hidden` attribute.
+ */
+function bindConditionalField(
+  select: HTMLSelectElement,
+  element: HTMLElement,
+  visibleFor: string[],
+): void {
+  const sync = () => {
+    element.hidden = !visibleFor.includes(select.value);
+  };
+  select.addEventListener("change", sync);
+  sync();
 }
 
 function applyStatFieldDefaults(statId: string): void {
@@ -185,9 +202,7 @@ export function bindQueryBuilder(teams: Team[], callbacks: QueryBuilderCallbacks
   const statMinQualifierInput = document.querySelector<HTMLInputElement>("#qb-stat-min-qualifier")!;
   const statApplyButton = document.querySelector<HTMLButtonElement>("#qb-stat-apply")!;
 
-  statScopeSelect.addEventListener("change", () => {
-    statSeasonField.hidden = statScopeSelect.value === "career";
-  });
+  bindConditionalField(statScopeSelect, statSeasonField, ["season"]);
 
   statApplyButton.addEventListener("click", () => {
     const statId = getComboBoxValue("qb-stat");
@@ -213,11 +228,9 @@ export function bindQueryBuilder(teams: Team[], callbacks: QueryBuilderCallbacks
   const schemeSelect = document.querySelector<HTMLSelectElement>("#qb-autotier-scheme")!;
   const autoTierApplyButton = document.querySelector<HTMLButtonElement>("#qb-autotier-apply")!;
 
-  strategySelect.addEventListener("change", () => {
-    intervalField.hidden = strategySelect.value !== "interval";
-    thresholdsField.hidden = strategySelect.value !== "thresholds";
-    schemeField.hidden = strategySelect.value !== "auto-grouping";
-  });
+  bindConditionalField(strategySelect, intervalField, ["interval"]);
+  bindConditionalField(strategySelect, thresholdsField, ["thresholds"]);
+  bindConditionalField(strategySelect, schemeField, ["auto-grouping"]);
 
   autoTierApplyButton.addEventListener("click", () => {
     const kind = strategySelect.value;

@@ -5,6 +5,11 @@ const SHARED_GROUP = "players";
 let poolSortable: Sortable | null = null;
 let removeSortable: Sortable | null = null;
 const tierSortables: Sortable[] = [];
+let onBoardChange: () => void = () => {};
+
+export function setOnBoardChange(callback: () => void): void {
+  onBoardChange = callback;
+}
 
 function removeZoneElement(): HTMLElement | null {
   return document.getElementById("remove-zone");
@@ -43,7 +48,10 @@ function createSortable(element: HTMLElement): Sortable {
     fallbackOnBody: true,
     fallbackClass: "player-card--dragging",
     onStart: showRemoveZone,
-    onEnd: hideRemoveZone,
+    onEnd: () => {
+      hideRemoveZone();
+      onBoardChange();
+    },
   });
 }
 
@@ -79,6 +87,7 @@ export function initRemoveZoneSortable(): void {
     ghostClass: "player-card--ghost",
     onAdd: (event) => {
       event.item.remove();
+      onBoardChange();
     },
   });
 }

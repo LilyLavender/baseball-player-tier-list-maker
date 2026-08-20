@@ -51,6 +51,17 @@ body {
   color: var(--color-text);
 }
 
+.topbar__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  color: var(--color-chalk-white);
+  user-select: none;
+  cursor: pointer;
+}
+
 .topbar__save,
 .topbar__btn {
   font-family: var(--font-body);
@@ -351,6 +362,13 @@ body {
   user-select: none;
 }
 
+.pool__count {
+  font-family: var(--font-mono);
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--color-text-muted);
+}
+
 .pool__header-actions {
   display: flex;
   align-items: center;
@@ -642,6 +660,10 @@ body {
   font-weight: 700;
   font-size: 0.65rem;
   border-radius: 2px;
+}
+
+.hide-stat-badges .player-card__stat {
+  display: none;
 }
 
 .player-card__name {
