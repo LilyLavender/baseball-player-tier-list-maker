@@ -98,6 +98,13 @@ function bindTierBoardCallbacks(): void {
       tierIds.push([]);
       rerenderBoardAndPool(tierIds.map(playersFromIds), playersFromIds(poolIds));
     },
+    onResetTiers: () => {
+      const poolIds = collectPoolPlayerIds();
+      const tieredIds = collectTierPlayerIds(currentTiers.length).flat();
+      currentTiers = cloneDefaultTiers();
+      const emptyTiers = currentTiers.map(() => []);
+      rerenderBoardAndPool(emptyTiers, playersFromIds([...poolIds, ...tieredIds]));
+    },
   });
 }
 
@@ -201,11 +208,9 @@ function renderShell(
     <header class="topbar">
       <span class="topbar__wordmark">MLB Tier List Maker</span>
       <div class="topbar__controls">
-        <select id="theme-select" class="topbar__theme-select">
-          <option value="scorecard">Scorecard</option>
-          <option value="light">Classic Light</option>
-          <option value="dark">Classic Dark</option>
-        </select>
+        <button id="theme-toggle" type="button" class="topbar__theme-toggle" title="Toggle light/dark theme">
+          <span class="topbar__theme-toggle-icon" aria-hidden="true">🌙</span>
+        </button>
         <label class="topbar__checkbox">
           <input id="stat-badge-toggle" type="checkbox" />
           Show stat numbers
@@ -295,12 +300,18 @@ function renderShell(
       });
   });
 
-  const themeSelect = document.querySelector<HTMLSelectElement>("#theme-select")!;
-  themeSelect.value = loadThemePref();
-  themeSelect.addEventListener("change", () => {
-    const theme = themeSelect.value as ThemeName;
+  const themeToggle = document.querySelector<HTMLButtonElement>("#theme-toggle")!;
+  const themeToggleIcon = themeToggle.querySelector<HTMLSpanElement>(".topbar__theme-toggle-icon")!;
+  const syncThemeToggle = (theme: ThemeName) => {
+    themeToggleIcon.textContent = theme === "dark" ? "☀️" : "🌙";
+    themeToggle.setAttribute("aria-label", theme === "dark" ? "Switch to light theme" : "Switch to dark theme");
+  };
+  syncThemeToggle(loadThemePref());
+  themeToggle.addEventListener("click", () => {
+    const theme: ThemeName = loadThemePref() === "dark" ? "light" : "dark";
     applyTheme(theme);
     saveThemePref(theme);
+    syncThemeToggle(theme);
   });
 
   const statBadgeToggle = document.querySelector<HTMLInputElement>("#stat-badge-toggle")!;

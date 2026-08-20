@@ -1,7 +1,7 @@
 /*
-  Theme tokens. Default (and only implemented for now) theme is "Scorecard", the site's
-  signature look. Classic Light/Dark themes are added in a later build step via
-  [data-theme="light"] / [data-theme="dark"] overrides on :root.
+  Theme tokens. Two themes: Light and Dark, both a green-primary / orange-accent duo (the site's
+  "field green + infield dirt" identity), switched via a toggle and persisted to localStorage.
+  Light is the default, defined on bare :root; Dark overrides via [data-theme="dark"].
 */
 :root {
   --color-field-green: #1b4332;
@@ -19,7 +19,7 @@
   --color-danger: var(--color-stitch-red);
   --color-highlight: var(--color-scoreboard-amber);
   --divider-style: dashed;
-  --divider-color: var(--color-stitch-red);
+  --divider-color: var(--color-accent);
   --color-border: #dddddd;
   --color-text-muted: #666666;
 
@@ -28,33 +28,24 @@
   --font-mono: "Consolas", "SF Mono", ui-monospace, monospace;
 }
 
-/* Classic Light: white background, green primary. No stitch motif. */
-:root[data-theme="light"] {
-  --color-bg: #ffffff;
-  --color-text: #14213d;
-  --color-surface: #ffffff;
-  --color-primary: #1b4332;
-  --color-accent: #2f6f4e;
-  --color-danger: #b03a2e;
-  --color-highlight: #2f6f4e;
-  --divider-style: solid;
-  --divider-color: #d8dcd6;
-  --color-border: #d8dcd6;
-  --color-text-muted: #5a5f57;
-}
-
-/* Classic Dark: black background, orange primary. No stitch motif. */
+/* Dark: near-black with a green tint, brightened green primary + orange accent. */
 :root[data-theme="dark"] {
-  --color-bg: #0e0e0e;
-  --color-text: #f5f6f2;
-  --color-surface: #1a1a1a;
-  --color-primary: #e8620c;
-  --color-accent: #e8620c;
-  --color-danger: #e05a4e;
-  --color-highlight: #e8620c;
-  --divider-style: solid;
-  --divider-color: #333333;
-  --color-border: #333333;
-  --color-text-muted: #aaaaaa;
-}
+  --color-field-green: #3f8a63;
+  --color-chalk-white: #f5f6f2;
+  --color-ink-navy: #14213d;
+  --color-infield-dirt: #e8a33d;
+  --color-stitch-red: #e05a4e;
+  --color-scoreboard-amber: #e8a33d;
 
+  --color-bg: #101510;
+  --color-text: var(--color-chalk-white);
+  --color-surface: #1a221b;
+  --color-primary: var(--color-field-green);
+  --color-accent: #e8620c;
+  --color-danger: var(--color-stitch-red);
+  --color-highlight: var(--color-scoreboard-amber);
+  --divider-style: dashed;
+  --divider-color: var(--color-accent);
+  --color-border: #33402f;
+  --color-text-muted: #a9b3a3;
+}

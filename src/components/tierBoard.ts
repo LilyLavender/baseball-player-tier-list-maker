@@ -9,6 +9,7 @@ export interface TierBoardCallbacks {
   onMoveDown: (index: number) => void;
   onDelete: (index: number) => void;
   onAddTier: () => void;
+  onResetTiers: () => void;
 }
 
 export function renderTierBoard(tiers: TierDefinition[], tierPlayers: PoolPlayer[][] = []): string {
@@ -47,7 +48,10 @@ export function renderTierBoard(tiers: TierDefinition[], tierPlayers: PoolPlayer
   return `
     <div class="board">
       ${rows}
-      <button type="button" id="add-tier" class="board__add-tier">+ Add tier</button>
+      <div class="board__actions">
+        <button type="button" id="add-tier" class="board__add-tier">+ Add tier</button>
+        <button type="button" id="reset-tiers" class="board__reset-tiers">Reset tiers</button>
+      </div>
     </div>
   `;
 }
@@ -80,4 +84,5 @@ export function bindTierBoard(callbacks: TierBoardCallbacks): void {
   });
 
   document.getElementById("add-tier")?.addEventListener("click", () => callbacks.onAddTier());
+  document.getElementById("reset-tiers")?.addEventListener("click", () => callbacks.onResetTiers());
 }
