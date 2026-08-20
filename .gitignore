@@ -26,4 +26,7 @@ dist-ssr
 # Claude
 .claude/
 CLAUDE.md
+
+# Project-specific
 docs/
+Todo.md
