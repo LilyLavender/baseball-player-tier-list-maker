@@ -167,9 +167,12 @@ export async function fetchTeamSeasonStats(
   teamId: number,
   season: number,
   group: "hitting" | "pitching",
+  qualified = false,
 ): Promise<Map<number, Record<string, string | number>>> {
+  const qualifierParam = qualified ? "&playerPool=Qualified" : "";
   const data = await getJson<StatSplitsResponse>(
-    `/stats?stats=season&group=${group}&season=${season}&sportId=1&teamId=${teamId}&limit=100`,
+    `/stats?stats=season&group=${group}&season=${season}&sportId=1&teamId=${teamId}&limit=100` +
+      `&sortStat=gamesPlayed&order=desc${qualifierParam}`,
   );
   const splits = data.stats[0]?.splits ?? [];
   const byPlayerId = new Map<number, Record<string, string | number>>();

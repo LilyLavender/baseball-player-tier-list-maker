@@ -113,6 +113,10 @@ export function renderQueryBuilder(
       Interval size
       <input id="qb-autotier-interval" type="number" value="10" min="0.1" step="0.1" />
     </label>
+    <label class="query-builder__field query-builder__field--checkbox" id="qb-autotier-empty-field" hidden>
+      <input id="qb-autotier-empty" type="checkbox" />
+      Show empty tiers between values
+    </label>
     <label class="query-builder__field" id="qb-autotier-thresholds-field" hidden>
       Thresholds (comma-separated)
       <input id="qb-autotier-thresholds" type="text" placeholder="e.g. 40, 30, 20, 10" />
@@ -216,6 +220,8 @@ export function bindQueryBuilder(teams: Team[], callbacks: QueryBuilderCallbacks
   const strategySelect = document.querySelector<HTMLSelectElement>("#qb-autotier-strategy")!;
   const intervalField = document.querySelector<HTMLLabelElement>("#qb-autotier-interval-field")!;
   const intervalInput = document.querySelector<HTMLInputElement>("#qb-autotier-interval")!;
+  const emptyTiersField = document.querySelector<HTMLLabelElement>("#qb-autotier-empty-field")!;
+  const emptyTiersCheckbox = document.querySelector<HTMLInputElement>("#qb-autotier-empty")!;
   const thresholdsField = document.querySelector<HTMLLabelElement>("#qb-autotier-thresholds-field")!;
   const thresholdsInput = document.querySelector<HTMLInputElement>("#qb-autotier-thresholds")!;
   const schemeField = document.querySelector<HTMLLabelElement>("#qb-autotier-scheme-field")!;
@@ -223,6 +229,7 @@ export function bindQueryBuilder(teams: Team[], callbacks: QueryBuilderCallbacks
   const autoTierApplyButton = document.querySelector<HTMLButtonElement>("#qb-autotier-apply")!;
 
   bindConditionalField(strategySelect, intervalField, ["interval"]);
+  bindConditionalField(strategySelect, emptyTiersField, ["per-unit"]);
   bindConditionalField(strategySelect, thresholdsField, ["thresholds"]);
   bindConditionalField(strategySelect, schemeField, ["auto-grouping"]);
 
@@ -231,7 +238,7 @@ export function bindQueryBuilder(teams: Team[], callbacks: QueryBuilderCallbacks
     if (kind === "interval") {
       callbacks.onGenerateAutoTiers({ kind: "interval", size: Number(intervalInput.value) || 1 });
     } else if (kind === "per-unit") {
-      callbacks.onGenerateAutoTiers({ kind: "per-unit" });
+      callbacks.onGenerateAutoTiers({ kind: "per-unit", showEmptyTiers: emptyTiersCheckbox.checked });
     } else if (kind === "auto-grouping") {
       const scheme =
         schemeSelect.value === "sf-plus-minus" || schemeSelect.value === "custom"

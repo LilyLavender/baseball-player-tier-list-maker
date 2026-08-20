@@ -20,7 +20,7 @@ import {
   initTierSortables,
   setOnBoardChange,
 } from "./dnd/dragAndDrop";
-import { collectPoolPlayerIds, collectTierPlayerIds } from "./storage/collectBoardState";
+import { collectPoolPlayerIds, collectTierPlayerIds, collectVisiblePoolPlayerIds } from "./storage/collectBoardState";
 import type { ActiveQuery } from "./storage/activeQuery";
 import {
   deleteSavedList,
@@ -138,7 +138,11 @@ function renderPoolSection(poolContent: string): string {
   `;
 }
 
-async function ensureStatValues(statCategoryId: string, players: PoolPlayer[]): Promise<Map<number, number>> {
+async function ensureStatValues(
+  statCategoryId: string,
+  players: PoolPlayer[],
+  qualifiedOnly: boolean,
+): Promise<Map<number, number>> {
   const stat = STAT_CATEGORIES.find((s) => s.id === statCategoryId);
   if (!stat) return new Map();
 
@@ -153,23 +157,27 @@ async function ensureStatValues(statCategoryId: string, players: PoolPlayer[]): 
       const [teamIdStr, seasonStr] = pair.split(":");
       const teamId = Number(teamIdStr);
       const season = Number(seasonStr);
-      const cacheKey = `${statCategoryId}:${teamId}:${season}`;
+      const cacheKey = `${statCategoryId}:${teamId}:${season}:${qualifiedOnly}`;
       if (teamStatCache.has(cacheKey)) return;
 
-      const raw = await fetchTeamSeasonStats(teamId, season, stat.group);
-      const values = new Map<number, number>();
-      for (const [playerId, statLine] of raw) {
-        const value = parseFloat(String(statLine[stat.statKey]));
-        if (!Number.isNaN(value)) values.set(playerId, value);
+      try {
+        const raw = await fetchTeamSeasonStats(teamId, season, stat.group, qualifiedOnly);
+        const values = new Map<number, number>();
+        for (const [playerId, statLine] of raw) {
+          const value = parseFloat(String(statLine[stat.statKey]));
+          if (!Number.isNaN(value)) values.set(playerId, value);
+        }
+        teamStatCache.set(cacheKey, values);
+      } catch (error) {
+        console.error(`Couldn't load team stats for team ${teamId}, season ${season}`, error);
       }
-      teamStatCache.set(cacheKey, values);
     }),
   );
 
   const merged = new Map<number, number>();
   for (const pair of teamSeasonPairs) {
     const [teamIdStr, seasonStr] = pair.split(":");
-    const values = teamStatCache.get(`${statCategoryId}:${teamIdStr}:${seasonStr}`);
+    const values = teamStatCache.get(`${statCategoryId}:${teamIdStr}:${seasonStr}:${qualifiedOnly}`);
     if (!values) continue;
     for (const [playerId, value] of values) merged.set(playerId, value);
   }
@@ -198,10 +206,15 @@ function bindPoolFilterControls(): void {
       };
       if (state.statCategoryId && state.statValue !== null) {
         const poolPlayers = playersFromIds(collectPoolPlayerIds());
-        void ensureStatValues(state.statCategoryId, poolPlayers).then((values) => {
-          currentStatValues = values;
-          finish();
-        });
+        void ensureStatValues(state.statCategoryId, poolPlayers, state.qualifiedOnly)
+          .then((values) => {
+            currentStatValues = values;
+            finish();
+          })
+          .catch((error) => {
+            console.error(error);
+            window.alert("Couldn't load stats for the pool filter. Try again.");
+          });
       } else {
         currentStatValues = new Map();
         finish();
@@ -503,7 +516,9 @@ async function loadStatPool(params: StatQueryParams): Promise<void> {
 }
 
 function applyAutoTiers(strategy: AutoTierStrategy): void {
-  const poolPlayers = playersFromIds(collectPoolPlayerIds());
+  const visibleIds = new Set(collectVisiblePoolPlayerIds());
+  const filteredOutIds = collectPoolPlayerIds().filter((id) => !visibleIds.has(id));
+  const poolPlayers = playersFromIds(Array.from(visibleIds));
   const query = currentQuery;
   const order =
     query !== null && query.kind === "stat"
@@ -522,7 +537,7 @@ function applyAutoTiers(strategy: AutoTierStrategy): void {
   }
 
   currentTiers = tiers;
-  rerenderBoardAndPool(tierPlayers, leftoverPool);
+  rerenderBoardAndPool(tierPlayers, [...leftoverPool, ...playersFromIds(filteredOutIds)]);
 }
 
 function bindQueryBuilderCallbacks(): void {

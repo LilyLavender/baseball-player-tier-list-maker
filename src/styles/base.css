@@ -433,6 +433,16 @@ body {
   color: var(--color-text-muted);
 }
 
+.pool-filters__field--checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pool-filters__field--checkbox input {
+  width: auto;
+}
+
 .pool-filters__field select,
 .pool-filters__field input {
   font: inherit;

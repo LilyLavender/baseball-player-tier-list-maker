@@ -9,10 +9,18 @@ export interface PoolFilterState {
   statCategoryId: string | null;
   comparator: ">=" | "<=";
   statValue: number | null;
+  qualifiedOnly: boolean;
 }
 
 export function emptyPoolFilterState(): PoolFilterState {
-  return { teamIds: new Set(), position: "all", statCategoryId: null, comparator: ">=", statValue: null };
+  return {
+    teamIds: new Set(),
+    position: "all",
+    statCategoryId: null,
+    comparator: ">=",
+    statValue: null,
+    qualifiedOnly: false,
+  };
 }
 
 export function isPoolFilterActive(state: PoolFilterState): boolean {
@@ -110,6 +118,10 @@ export function renderPoolFilters(teams: Team[]): string {
         <label class="pool-filters__field">
           <input id="pf-stat-value" type="number" placeholder="value" step="any" />
         </label>
+        <label class="pool-filters__field pool-filters__field--checkbox">
+          <input id="pf-qualified" type="checkbox" />
+          Qualified only
+        </label>
         <button type="button" id="pf-apply" class="pool-filters__apply">Apply filters</button>
         <button type="button" id="pf-clear" class="pool-filters__clear">Clear filters</button>
       </div>
@@ -123,7 +135,10 @@ export function syncPoolFilterUI(state: PoolFilterState): void {
   const statSelect = document.querySelector<HTMLSelectElement>("#pf-stat");
   const comparatorSelect = document.querySelector<HTMLSelectElement>("#pf-comparator");
   const statValueInput = document.querySelector<HTMLInputElement>("#pf-stat-value");
-  if (!teamSelect || !positionGroup || !statSelect || !comparatorSelect || !statValueInput) return;
+  const qualifiedCheckbox = document.querySelector<HTMLInputElement>("#pf-qualified");
+  if (!teamSelect || !positionGroup || !statSelect || !comparatorSelect || !statValueInput || !qualifiedCheckbox) {
+    return;
+  }
 
   Array.from(teamSelect.options).forEach((opt) => {
     opt.selected = state.teamIds.has(Number(opt.value));
@@ -135,6 +150,7 @@ export function syncPoolFilterUI(state: PoolFilterState): void {
   statSelect.value = state.statCategoryId ?? "";
   comparatorSelect.value = state.comparator;
   statValueInput.value = state.statValue === null ? "" : String(state.statValue);
+  qualifiedCheckbox.checked = state.qualifiedOnly;
 }
 
 export function bindPoolFilters(
@@ -147,6 +163,7 @@ export function bindPoolFilters(
   const statSelect = document.querySelector<HTMLSelectElement>("#pf-stat")!;
   const comparatorSelect = document.querySelector<HTMLSelectElement>("#pf-comparator")!;
   const statValueInput = document.querySelector<HTMLInputElement>("#pf-stat-value")!;
+  const qualifiedCheckbox = document.querySelector<HTMLInputElement>("#pf-qualified")!;
   const applyButton = document.querySelector<HTMLButtonElement>("#pf-apply")!;
   const clearButton = document.querySelector<HTMLButtonElement>("#pf-clear")!;
 
@@ -179,6 +196,7 @@ export function bindPoolFilters(
       statCategoryId,
       comparator: comparatorSelect.value === "<=" ? "<=" : ">=",
       statValue: statCategoryId ? statValue : null,
+      qualifiedOnly: qualifiedCheckbox.checked,
     });
   });
 
@@ -190,6 +208,7 @@ export function bindPoolFilters(
       .forEach((b) => b.classList.toggle("pool-filters__toggle-btn--active", b.dataset.value === "all"));
     statSelect.value = "";
     statValueInput.value = "";
+    qualifiedCheckbox.checked = false;
     onClear();
   });
 }

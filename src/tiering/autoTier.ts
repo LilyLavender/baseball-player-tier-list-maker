@@ -5,7 +5,7 @@ export type AutoTierScheme = "sf" | "sf-plus-minus" | "custom";
 
 export type AutoTierStrategy =
   | { kind: "interval"; size: number }
-  | { kind: "per-unit" }
+  | { kind: "per-unit"; showEmptyTiers?: boolean }
   | { kind: "auto-grouping"; scheme: AutoTierScheme; customTiers?: TierDefinition[] }
   | { kind: "thresholds"; thresholds: number[] };
 
@@ -61,13 +61,25 @@ function bucketByInterval(entries: ValuedEntry[], order: "asc" | "desc", size: n
   });
 }
 
-function bucketByUnit(entries: ValuedEntry[], order: "asc" | "desc"): Bucket[] {
+function bucketByUnit(entries: ValuedEntry[], order: "asc" | "desc", showEmptyTiers: boolean): Bucket[] {
   const groups = new Map<number, ValuedEntry[]>();
   for (const entry of entries) {
     (groups.get(entry.value) ?? groups.set(entry.value, []).get(entry.value)!).push(entry);
   }
-  const keys = Array.from(groups.keys()).sort((a, b) => (order === "asc" ? a - b : b - a));
-  return keys.map((key) => ({ label: String(key), entries: groups.get(key)! }));
+  const presentKeys = Array.from(groups.keys());
+  const allIntegers = presentKeys.every((k) => Number.isInteger(k));
+
+  let keys: number[];
+  if (showEmptyTiers && allIntegers && presentKeys.length > 0) {
+    const min = Math.min(...presentKeys);
+    const max = Math.max(...presentKeys);
+    const ascending: number[] = [];
+    for (let v = min; v <= max; v++) ascending.push(v);
+    keys = order === "asc" ? ascending : ascending.slice().reverse();
+  } else {
+    keys = presentKeys.sort((a, b) => (order === "asc" ? a - b : b - a));
+  }
+  return keys.map((key) => ({ label: String(key), entries: groups.get(key) ?? [] }));
 }
 
 const SF_LABELS = ["S", "A", "B", "C", "D", "F"];
@@ -204,7 +216,7 @@ export function generateAutoTiers(
       buckets = bucketByInterval(entries, order, strategy.size);
       break;
     case "per-unit":
-      buckets = bucketByUnit(entries, order);
+      buckets = bucketByUnit(entries, order, strategy.showEmptyTiers === true);
       break;
     case "auto-grouping":
       buckets = bucketByAutoGrouping(entries, strategy.scheme, strategy.customTiers);
@@ -214,7 +226,8 @@ export function generateAutoTiers(
       break;
   }
 
-  const nonEmpty = buckets.filter((b) => b.entries.length > 0);
+  const keepEmptyTiers = strategy.kind === "per-unit" && strategy.showEmptyTiers === true;
+  const nonEmpty = keepEmptyTiers ? buckets : buckets.filter((b) => b.entries.length > 0);
   const tiers: TierDefinition[] = nonEmpty.map((bucket, index) => ({
     label: bucket.label,
     color: bucket.color ?? rankColor(index, nonEmpty.length),
