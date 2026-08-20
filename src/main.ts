@@ -1,5 +1,13 @@
 import "./styles/base.css";
-import { fetchAllTeamsRoster, fetchRoster, fetchStatLeaders, fetchTeams, fetchTeamSeasonStats } from "./api/mlbApi";
+import {
+  fetchActivePlayerBirthCountries,
+  fetchAllTeamsRoster,
+  fetchBirthCountries,
+  fetchRoster,
+  fetchStatLeaders,
+  fetchTeams,
+  fetchTeamSeasonStats,
+} from "./api/mlbApi";
 import { bindQueryBuilder, renderQueryBuilder } from "./components/queryBuilder";
 import type { StatQueryParams } from "./components/queryBuilder";
 import { renderPlayerPool } from "./components/playerPool";
@@ -58,9 +66,15 @@ let teams: Team[] = [];
 let currentPoolFilter: PoolFilterState = emptyPoolFilterState();
 let currentStatValues = new Map<number, number>();
 const teamStatCache = new Map<string, Map<number, number>>();
+let activeCountryByPlayerId = new Map<number, string>();
+let countryFilterOptions: string[] = [];
 
 function rememberPlayers(players: PoolPlayer[]): void {
   for (const player of players) {
+    if (player.birthCountry === undefined) {
+      const activeCountry = activeCountryByPlayerId.get(player.id);
+      if (activeCountry) player.birthCountry = activeCountry;
+    }
     playersById.set(player.id, player);
   }
 }
@@ -132,7 +146,7 @@ function renderPoolSection(poolContent: string): string {
           <button id="clear-pool" type="button" class="pool__clear">Clear pool</button>
         </div>
       </div>
-      ${renderPoolFilters(teams)}
+      ${renderPoolFilters(teams, countryFilterOptions)}
       <div id="pool-content">${poolContent}</div>
     </section>
   `;
@@ -184,6 +198,18 @@ async function ensureStatValues(
   return merged;
 }
 
+/** Fetches and caches birth country for any pool player that doesn't have it yet, in place. */
+async function ensureBirthCountries(players: PoolPlayer[]): Promise<void> {
+  const missingIds = players.filter((p) => p.birthCountry === undefined).map((p) => p.id);
+  if (missingIds.length === 0) return;
+
+  const countries = await fetchBirthCountries(missingIds);
+  for (const player of players) {
+    const country = countries.get(player.id);
+    if (country) player.birthCountry = country;
+  }
+}
+
 function applyPoolFilterToDom(): void {
   const cards = document.querySelectorAll<HTMLElement>("#pool-content .player-card");
   cards.forEach((card) => {
@@ -201,24 +227,24 @@ function bindPoolFilterControls(): void {
     teams,
     (state) => {
       currentPoolFilter = state;
-      const finish = () => {
-        applyPoolFilterToDom();
-      };
-      if (state.statCategoryId && state.statValue !== null) {
-        const poolPlayers = playersFromIds(collectPoolPlayerIds());
-        void ensureStatValues(state.statCategoryId, poolPlayers, state.qualifiedOnly)
-          .then((values) => {
-            currentStatValues = values;
-            finish();
-          })
-          .catch((error) => {
-            console.error(error);
-            window.alert("Couldn't load stats for the pool filter. Try again.");
-          });
-      } else {
-        currentStatValues = new Map();
-        finish();
-      }
+      const poolPlayers = playersFromIds(collectPoolPlayerIds());
+
+      const statValuesPromise =
+        state.statCategoryId && state.statValue !== null
+          ? ensureStatValues(state.statCategoryId, poolPlayers, state.qualifiedOnly)
+          : Promise.resolve(new Map<number, number>());
+      const birthCountriesPromise =
+        state.birthCountries.size > 0 ? ensureBirthCountries(poolPlayers) : Promise.resolve();
+
+      void Promise.all([statValuesPromise, birthCountriesPromise])
+        .then(([values]) => {
+          currentStatValues = values;
+          applyPoolFilterToDom();
+        })
+        .catch((error) => {
+          console.error(error);
+          window.alert("Couldn't load data for the pool filter. Try again.");
+        });
     },
     () => {
       currentPoolFilter = emptyPoolFilterState();
@@ -581,7 +607,16 @@ async function init(): Promise<void> {
     `<p class="pool__placeholder">Players will appear here once a query runs.</p>`,
   );
 
-  teams = await fetchTeams();
+  const [fetchedTeams, activeCountries] = await Promise.all([
+    fetchTeams(),
+    fetchActivePlayerBirthCountries(CURRENT_YEAR).catch((error) => {
+      console.error("Couldn't load active player birth countries", error);
+      return { byPlayerId: new Map<number, string>(), countries: [] };
+    }),
+  ]);
+  teams = fetchedTeams;
+  activeCountryByPlayerId = activeCountries.byPlayerId;
+  countryFilterOptions = activeCountries.countries;
 
   const lastOpenedId = getLastOpenedId();
   if (lastOpenedId && getSavedList(lastOpenedId)) {

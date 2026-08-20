@@ -181,3 +181,45 @@ export async function fetchTeamSeasonStats(
   }
   return byPlayerId;
 }
+
+interface PeopleResponse {
+  people: Array<{ id: number; birthCountry?: string }>;
+}
+
+const PEOPLE_LOOKUP_CHUNK_SIZE = 100;
+
+/** Fetches birth country for a batch of players, for the pool's country-of-birth filter. */
+export async function fetchBirthCountries(playerIds: number[]): Promise<Map<number, string>> {
+  const result = new Map<number, string>();
+  const uniqueIds = Array.from(new Set(playerIds));
+
+  for (let i = 0; i < uniqueIds.length; i += PEOPLE_LOOKUP_CHUNK_SIZE) {
+    const chunk = uniqueIds.slice(i, i + PEOPLE_LOOKUP_CHUNK_SIZE);
+    const data = await getJson<PeopleResponse>(`/people?personIds=${chunk.join(",")}`);
+    for (const person of data.people) {
+      if (person.birthCountry) result.set(person.id, person.birthCountry);
+    }
+  }
+  return result;
+}
+
+export interface ActivePlayerBirthCountries {
+  byPlayerId: Map<number, string>;
+  countries: string[];
+}
+
+/**
+ * Fetches birth country for every currently active MLB player in one request, to pre-fill the
+ * pool's country-of-birth filter without waiting on a per-player lookup.
+ */
+export async function fetchActivePlayerBirthCountries(season: number): Promise<ActivePlayerBirthCountries> {
+  const data = await getJson<PeopleResponse>(`/sports/1/players?season=${season}`);
+  const byPlayerId = new Map<number, string>();
+  const countrySet = new Set<string>();
+  for (const person of data.people) {
+    if (!person.birthCountry) continue;
+    byPlayerId.set(person.id, person.birthCountry);
+    countrySet.add(person.birthCountry);
+  }
+  return { byPlayerId, countries: Array.from(countrySet).sort() };
+}

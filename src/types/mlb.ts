@@ -21,6 +21,8 @@ export interface PoolPlayer {
   season?: number;
   teamId?: number;
   teamAbbreviation?: string;
+  /** Fetched on demand for the pool's country-of-birth filter, not present on initial load. */
+  birthCountry?: string;
 }
 
 /**

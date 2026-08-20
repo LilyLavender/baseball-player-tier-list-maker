@@ -1,11 +1,19 @@
 import type { PoolPlayer, PositionType, Team } from "../types/mlb";
 import { statOptions } from "../data/statCategories";
+import { flagForCountry } from "../data/countryFlags";
 
 export type PositionFilter = "all" | PositionType;
+
+const SPECIFIC_POSITIONS = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "OF", "DH", "P", "TWP"];
+const SPECIFIC_POSITION_LABELS: Record<string, string> = { TWP: "TWP (Two-Way)" };
+/** A two-way player's `positionAbbreviation` is just "TWP", so treat them as playing both. */
+const TWO_WAY_SPECIFIC_POSITIONS = ["P", "DH"];
 
 export interface PoolFilterState {
   teamIds: Set<number>;
   position: PositionFilter;
+  specificPositions: Set<string>;
+  birthCountries: Set<string>;
   statCategoryId: string | null;
   comparator: ">=" | "<=";
   statValue: number | null;
@@ -16,6 +24,8 @@ export function emptyPoolFilterState(): PoolFilterState {
   return {
     teamIds: new Set(),
     position: "all",
+    specificPositions: new Set(),
+    birthCountries: new Set(),
     statCategoryId: null,
     comparator: ">=",
     statValue: null,
@@ -24,13 +34,19 @@ export function emptyPoolFilterState(): PoolFilterState {
 }
 
 export function isPoolFilterActive(state: PoolFilterState): boolean {
-  return state.teamIds.size > 0 || state.position !== "all" || state.statCategoryId !== null;
+  return (
+    state.teamIds.size > 0 ||
+    state.position !== "all" ||
+    state.specificPositions.size > 0 ||
+    state.birthCountries.size > 0 ||
+    state.statCategoryId !== null
+  );
 }
 
 /**
  * True if `player` should be shown. A stat filter that can't be evaluated (no cached value for
  * this player) hides the player rather than showing it, since "unknown" shouldn't pass a
- * threshold check.
+ * threshold check. Same for a country filter when the player's birth country hasn't been fetched.
  */
 export function matchesPoolFilter(
   player: PoolPlayer,
@@ -40,7 +56,21 @@ export function matchesPoolFilter(
   if (state.teamIds.size > 0 && (player.teamId === undefined || !state.teamIds.has(player.teamId))) {
     return false;
   }
-  if (state.position !== "all" && player.positionType !== state.position) {
+  const isTwoWay = player.positionAbbreviation === "TWP";
+  if (state.position !== "all" && !isTwoWay && player.positionType !== state.position) {
+    return false;
+  }
+  if (state.specificPositions.size > 0) {
+    const matchesSpecificPosition = isTwoWay
+      ? TWO_WAY_SPECIFIC_POSITIONS.some((pos) => state.specificPositions.has(pos)) ||
+        state.specificPositions.has("TWP")
+      : player.positionAbbreviation !== undefined && state.specificPositions.has(player.positionAbbreviation);
+    if (!matchesSpecificPosition) return false;
+  }
+  if (
+    state.birthCountries.size > 0 &&
+    (player.birthCountry === undefined || !state.birthCountries.has(player.birthCountry))
+  ) {
     return false;
   }
   if (state.statCategoryId !== null && state.statValue !== null) {
@@ -61,7 +91,7 @@ function groupTeamsByDivision(teams: Team[]): Map<string, Team[]> {
   return groups;
 }
 
-export function renderPoolFilters(teams: Team[]): string {
+export function renderPoolFilters(teams: Team[], countries: string[] = []): string {
   const divisions = groupTeamsByDivision(teams);
   const divisionChips = Array.from(divisions.keys())
     .sort()
@@ -100,6 +130,20 @@ export function renderPoolFilters(teams: Team[]): string {
             <button type="button" class="pool-filters__toggle-btn" data-value="pitcher">Pitchers</button>
           </div>
         </div>
+        <label class="pool-filters__field">
+          Specific position
+          <select id="pf-specific-positions" multiple size="4" class="pool-filters__team-select">
+            ${SPECIFIC_POSITIONS.map((pos) => `<option value="${pos}">${SPECIFIC_POSITION_LABELS[pos] ?? pos}</option>`).join("")}
+          </select>
+        </label>
+        <label class="pool-filters__field">
+          Country of birth
+          <select id="pf-countries" multiple size="4" class="pool-filters__team-select">
+            ${countries
+              .map((country) => `<option value="${country}">${flagForCountry(country)} ${country}</option>`)
+              .join("")}
+          </select>
+        </label>
       </div>
       <div class="pool-filters__row">
         <label class="pool-filters__field">
@@ -132,11 +176,22 @@ export function renderPoolFilters(teams: Team[]): string {
 export function syncPoolFilterUI(state: PoolFilterState): void {
   const teamSelect = document.querySelector<HTMLSelectElement>("#pf-teams");
   const positionGroup = document.querySelector<HTMLDivElement>("#pf-position");
+  const specificPositionSelect = document.querySelector<HTMLSelectElement>("#pf-specific-positions");
+  const countrySelect = document.querySelector<HTMLSelectElement>("#pf-countries");
   const statSelect = document.querySelector<HTMLSelectElement>("#pf-stat");
   const comparatorSelect = document.querySelector<HTMLSelectElement>("#pf-comparator");
   const statValueInput = document.querySelector<HTMLInputElement>("#pf-stat-value");
   const qualifiedCheckbox = document.querySelector<HTMLInputElement>("#pf-qualified");
-  if (!teamSelect || !positionGroup || !statSelect || !comparatorSelect || !statValueInput || !qualifiedCheckbox) {
+  if (
+    !teamSelect ||
+    !positionGroup ||
+    !specificPositionSelect ||
+    !countrySelect ||
+    !statSelect ||
+    !comparatorSelect ||
+    !statValueInput ||
+    !qualifiedCheckbox
+  ) {
     return;
   }
 
@@ -147,6 +202,12 @@ export function syncPoolFilterUI(state: PoolFilterState): void {
   positionGroup
     .querySelectorAll<HTMLButtonElement>(".pool-filters__toggle-btn")
     .forEach((b) => b.classList.toggle("pool-filters__toggle-btn--active", b.dataset.value === state.position));
+  Array.from(specificPositionSelect.options).forEach((opt) => {
+    opt.selected = state.specificPositions.has(opt.value);
+  });
+  Array.from(countrySelect.options).forEach((opt) => {
+    opt.selected = state.birthCountries.has(opt.value);
+  });
   statSelect.value = state.statCategoryId ?? "";
   comparatorSelect.value = state.comparator;
   statValueInput.value = state.statValue === null ? "" : String(state.statValue);
@@ -160,6 +221,8 @@ export function bindPoolFilters(
 ): void {
   const teamSelect = document.querySelector<HTMLSelectElement>("#pf-teams")!;
   const positionGroup = document.querySelector<HTMLDivElement>("#pf-position")!;
+  const specificPositionSelect = document.querySelector<HTMLSelectElement>("#pf-specific-positions")!;
+  const countrySelect = document.querySelector<HTMLSelectElement>("#pf-countries")!;
   const statSelect = document.querySelector<HTMLSelectElement>("#pf-stat")!;
   const comparatorSelect = document.querySelector<HTMLSelectElement>("#pf-comparator")!;
   const statValueInput = document.querySelector<HTMLInputElement>("#pf-stat-value")!;
@@ -188,11 +251,17 @@ export function bindPoolFilters(
 
   applyButton.addEventListener("click", () => {
     const teamIds = new Set(Array.from(teamSelect.selectedOptions).map((opt) => Number(opt.value)));
+    const specificPositions = new Set(
+      Array.from(specificPositionSelect.selectedOptions).map((opt) => opt.value),
+    );
+    const birthCountries = new Set(Array.from(countrySelect.selectedOptions).map((opt) => opt.value));
     const statCategoryId = statSelect.value || null;
     const statValue = statValueInput.value === "" ? null : Number(statValueInput.value);
     onApply({
       teamIds,
       position: (positionGroup.dataset.active as PositionFilter) ?? "all",
+      specificPositions,
+      birthCountries,
       statCategoryId,
       comparator: comparatorSelect.value === "<=" ? "<=" : ">=",
       statValue: statCategoryId ? statValue : null,
@@ -206,6 +275,8 @@ export function bindPoolFilters(
     positionGroup
       .querySelectorAll<HTMLButtonElement>(".pool-filters__toggle-btn")
       .forEach((b) => b.classList.toggle("pool-filters__toggle-btn--active", b.dataset.value === "all"));
+    specificPositionSelect.querySelectorAll("option").forEach((opt) => (opt.selected = false));
+    countrySelect.querySelectorAll("option").forEach((opt) => (opt.selected = false));
     statSelect.value = "";
     statValueInput.value = "";
     qualifiedCheckbox.checked = false;
