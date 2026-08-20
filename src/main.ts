@@ -1,8 +1,17 @@
 import "./styles/base.css";
-import { fetchAllTeamsRoster, fetchRoster, fetchStatLeaders, fetchTeams } from "./api/mlbApi";
+import { fetchAllTeamsRoster, fetchRoster, fetchStatLeaders, fetchTeams, fetchTeamSeasonStats } from "./api/mlbApi";
 import { bindQueryBuilder, renderQueryBuilder } from "./components/queryBuilder";
 import type { StatQueryParams } from "./components/queryBuilder";
 import { renderPlayerPool } from "./components/playerPool";
+import {
+  bindPoolFilters,
+  emptyPoolFilterState,
+  isPoolFilterActive,
+  matchesPoolFilter,
+  renderPoolFilters,
+  syncPoolFilterUI,
+} from "./components/poolFilters";
+import type { PoolFilterState } from "./components/poolFilters";
 import { bindPlayerSearch, renderPlayerSearch } from "./components/playerSearch";
 import { bindTierBoard, renderTierBoard, tierDropZoneIds } from "./components/tierBoard";
 import {
@@ -39,12 +48,16 @@ import type { PoolPlayer, Team } from "./types/mlb";
 applyTheme(loadThemePref());
 applyStatBadgePref(loadStatBadgePref());
 
+const CURRENT_YEAR = new Date().getFullYear();
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const playersById = new Map<number, PoolPlayer>();
 let currentQuery: ActiveQuery | null = null;
 let currentListId: string | null = null;
 let currentTiers: TierDefinition[] = cloneDefaultTiers();
 let teams: Team[] = [];
+let currentPoolFilter: PoolFilterState = emptyPoolFilterState();
+let currentStatValues = new Map<number, number>();
+const teamStatCache = new Map<string, Map<number, number>>();
 
 function rememberPlayers(players: PoolPlayer[]): void {
   for (const player of players) {
@@ -119,9 +132,87 @@ function renderPoolSection(poolContent: string): string {
           <button id="clear-pool" type="button" class="pool__clear">Clear pool</button>
         </div>
       </div>
+      ${renderPoolFilters(teams)}
       <div id="pool-content">${poolContent}</div>
     </section>
   `;
+}
+
+async function ensureStatValues(statCategoryId: string, players: PoolPlayer[]): Promise<Map<number, number>> {
+  const stat = STAT_CATEGORIES.find((s) => s.id === statCategoryId);
+  if (!stat) return new Map();
+
+  const teamSeasonPairs = new Set<string>();
+  for (const player of players) {
+    if (player.teamId === undefined) continue;
+    teamSeasonPairs.add(`${player.teamId}:${player.season ?? CURRENT_YEAR}`);
+  }
+
+  await Promise.all(
+    Array.from(teamSeasonPairs).map(async (pair) => {
+      const [teamIdStr, seasonStr] = pair.split(":");
+      const teamId = Number(teamIdStr);
+      const season = Number(seasonStr);
+      const cacheKey = `${statCategoryId}:${teamId}:${season}`;
+      if (teamStatCache.has(cacheKey)) return;
+
+      const raw = await fetchTeamSeasonStats(teamId, season, stat.group);
+      const values = new Map<number, number>();
+      for (const [playerId, statLine] of raw) {
+        const value = parseFloat(String(statLine[stat.statKey]));
+        if (!Number.isNaN(value)) values.set(playerId, value);
+      }
+      teamStatCache.set(cacheKey, values);
+    }),
+  );
+
+  const merged = new Map<number, number>();
+  for (const pair of teamSeasonPairs) {
+    const [teamIdStr, seasonStr] = pair.split(":");
+    const values = teamStatCache.get(`${statCategoryId}:${teamIdStr}:${seasonStr}`);
+    if (!values) continue;
+    for (const [playerId, value] of values) merged.set(playerId, value);
+  }
+  return merged;
+}
+
+function applyPoolFilterToDom(): void {
+  const cards = document.querySelectorAll<HTMLElement>("#pool-content .player-card");
+  cards.forEach((card) => {
+    const id = Number(card.dataset.playerId);
+    const player = playersById.get(id);
+    const visible = !player || matchesPoolFilter(player, currentPoolFilter, currentStatValues);
+    card.classList.toggle("player-card--filtered-out", !visible);
+  });
+  updatePoolCount();
+}
+
+function bindPoolFilterControls(): void {
+  syncPoolFilterUI(currentPoolFilter);
+  bindPoolFilters(
+    teams,
+    (state) => {
+      currentPoolFilter = state;
+      const finish = () => {
+        applyPoolFilterToDom();
+      };
+      if (state.statCategoryId && state.statValue !== null) {
+        const poolPlayers = playersFromIds(collectPoolPlayerIds());
+        void ensureStatValues(state.statCategoryId, poolPlayers).then((values) => {
+          currentStatValues = values;
+          finish();
+        });
+      } else {
+        currentStatValues = new Map();
+        finish();
+      }
+    },
+    () => {
+      currentPoolFilter = emptyPoolFilterState();
+      currentStatValues = new Map();
+      applyPoolFilterToDom();
+    },
+  );
 }
 
 function bindClearPoolButton(): void {
@@ -159,7 +250,8 @@ function rerenderBoardAndPool(tierPlayers: PoolPlayer[][], poolPlayers: PoolPlay
   initPoolSortable();
   bindClearPoolButton();
   bindTierBoardCallbacks();
-  updatePoolCount();
+  bindPoolFilterControls();
+  applyPoolFilterToDom();
 }
 
 function openHistoryPanel(): void {
@@ -243,6 +335,8 @@ function renderShell(
   initRemoveZoneSortable();
   bindTierBoardCallbacks();
   bindClearPoolButton();
+  bindPoolFilterControls();
+  applyPoolFilterToDom();
 
   document.querySelector<HTMLButtonElement>("#save-list")!.addEventListener("click", () => {
     let title = currentListId ? getSavedList(currentListId)?.title : undefined;
@@ -270,6 +364,8 @@ function renderShell(
     currentListId = null;
     currentQuery = null;
     currentTiers = cloneDefaultTiers();
+    currentPoolFilter = emptyPoolFilterState();
+    currentStatValues = new Map();
     setLastOpenedId(null);
     renderShell(renderQueryBuilder(teams), `<p class="pool__placeholder">Players will appear here once a query runs.</p>`);
     bindQueryBuilderCallbacks();
@@ -325,14 +421,20 @@ function renderShell(
 function updatePoolCount(): void {
   const countEl = document.querySelector<HTMLSpanElement>("#pool-count");
   if (!countEl) return;
-  const count = document.querySelectorAll("#pool-content .player-card").length;
-  countEl.textContent = `(${count})`;
+  const cards = document.querySelectorAll<HTMLElement>("#pool-content .player-card");
+  const total = cards.length;
+  if (!isPoolFilterActive(currentPoolFilter)) {
+    countEl.textContent = `(${total})`;
+    return;
+  }
+  const visible = Array.from(cards).filter((c) => !c.classList.contains("player-card--filtered-out")).length;
+  countEl.textContent = `(${visible} of ${total})`;
 }
 
 function setPoolContent(html: string): void {
   document.querySelector<HTMLDivElement>("#pool-content")!.innerHTML = html;
   initPoolSortable();
-  updatePoolCount();
+  applyPoolFilterToDom();
 }
 
 async function loadTeamPool(teamId: number | "all", season: number): Promise<void> {
@@ -408,7 +510,12 @@ function applyAutoTiers(strategy: AutoTierStrategy): void {
       ? (STAT_CATEGORIES.find((s) => s.id === query.statCategoryId)?.order ?? "desc")
       : "desc";
 
-  const { tiers, tierPlayers, leftoverPool } = generateAutoTiers(poolPlayers, order, strategy);
+  const resolvedStrategy: AutoTierStrategy =
+    strategy.kind === "auto-grouping" && strategy.scheme === "custom"
+      ? { ...strategy, customTiers: currentTiers }
+      : strategy;
+
+  const { tiers, tierPlayers, leftoverPool } = generateAutoTiers(poolPlayers, order, resolvedStrategy);
   if (tiers.length === 0) {
     window.alert("No stat values found in the pool. Run a stat leaders query first.");
     return;
@@ -440,6 +547,8 @@ async function openSavedList(id: string): Promise<void> {
   currentQuery = list.query;
   currentListId = list.id;
   currentTiers = list.tiers?.length ? list.tiers.map((t) => ({ ...t })) : cloneDefaultTiers();
+  currentPoolFilter = emptyPoolFilterState();
+  currentStatValues = new Map();
   setLastOpenedId(list.id);
 
   const poolPlayers = playersFromIds(list.poolPlayerIds);

@@ -1,7 +1,7 @@
 import type { Team } from "../types/mlb";
 import { teamLogoUrl } from "../types/mlb";
 import { fetchTeams } from "../api/mlbApi";
-import { qualifierFor, STAT_CATEGORIES } from "../data/statCategories";
+import { qualifierFor, statOptions, STAT_CATEGORIES } from "../data/statCategories";
 import { bindComboBox, getComboBoxValue, renderComboBox, setComboBoxOptions } from "./comboBox";
 import type { ComboBoxOption } from "./comboBox";
 import type { AutoTierStrategy } from "../tiering/autoTier";
@@ -32,13 +32,6 @@ function teamOptions(teams: Team[]): ComboBoxOption[] {
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((team) => ({ value: String(team.id), label: team.name, iconUrl: teamLogoUrl(team.id) }));
   return [{ value: ALL_TEAMS_VALUE, label: "All Teams" }, ...sorted];
-}
-
-function statOptions(): ComboBoxOption[] {
-  return STAT_CATEGORIES.map((stat) => ({
-    value: stat.id,
-    label: `${stat.label} (${stat.group})`,
-  }));
 }
 
 export function renderQueryBuilder(
@@ -129,6 +122,7 @@ export function renderQueryBuilder(
       <select id="qb-autotier-scheme">
         <option value="sf">S-F (6 tiers)</option>
         <option value="sf-plus-minus">S-F with +/- (up to 18 tiers)</option>
+        <option value="custom">Use current tier board's labels</option>
       </select>
     </label>
     <button id="qb-autotier-apply" type="button">Generate Tiers</button>
@@ -239,7 +233,10 @@ export function bindQueryBuilder(teams: Team[], callbacks: QueryBuilderCallbacks
     } else if (kind === "per-unit") {
       callbacks.onGenerateAutoTiers({ kind: "per-unit" });
     } else if (kind === "auto-grouping") {
-      const scheme = schemeSelect.value === "sf-plus-minus" ? "sf-plus-minus" : "sf";
+      const scheme =
+        schemeSelect.value === "sf-plus-minus" || schemeSelect.value === "custom"
+          ? schemeSelect.value
+          : "sf";
       callbacks.onGenerateAutoTiers({ kind: "auto-grouping", scheme });
     } else if (kind === "thresholds") {
       const thresholds = thresholdsInput.value

@@ -16,6 +16,18 @@ export interface Qualifier {
   label: string;
 }
 
+export interface StatOption {
+  value: string;
+  label: string;
+}
+
+export function statOptions(): StatOption[] {
+  return STAT_CATEGORIES.map((stat) => ({
+    value: stat.id,
+    label: `${stat.label} (${stat.group})`,
+  }));
+}
+
 export function qualifierFor(group: "hitting" | "pitching"): Qualifier {
   return group === "pitching"
     ? { key: "inningsPitched", label: "Innings Pitched" }
@@ -42,6 +54,10 @@ export const STAT_CATEGORIES: StatCategory[] = [
   { id: "sf", sortStat: "sacrificeFlies", statKey: "sacFlies", label: "Sacrifice Flies", group: "hitting", order: "desc", qualified: false },
   { id: "gidp", sortStat: "groundIntoDoublePlay", statKey: "groundIntoDoublePlay", label: "Grounded Into Double Play", group: "hitting", order: "desc", qualified: false },
   { id: "games-hit", sortStat: "gamesPlayed", statKey: "gamesPlayed", label: "Games Played", group: "hitting", order: "desc", qualified: false },
+  { id: "pa", sortStat: "plateAppearances", statKey: "plateAppearances", label: "Plate Appearances", group: "hitting", order: "desc", qualified: false },
+  { id: "ab", sortStat: "atBats", statKey: "atBats", label: "At-Bats", group: "hitting", order: "desc", qualified: false },
+  { id: "ibb", sortStat: "intentionalWalks", statKey: "intentionalWalks", label: "Intentional Walks", group: "hitting", order: "desc", qualified: false },
+  { id: "hbp-hit", sortStat: "hitByPitch", statKey: "hitByPitch", label: "Hit By Pitch", group: "hitting", order: "desc", qualified: false },
 
   // Pitching
   { id: "era", sortStat: "earnedRunAverage", statKey: "era", label: "ERA", group: "pitching", order: "asc", qualified: true },
@@ -59,4 +75,8 @@ export const STAT_CATEGORIES: StatCategory[] = [
   { id: "complete-games", sortStat: "completeGames", statKey: "completeGames", label: "Complete Games", group: "pitching", order: "desc", qualified: false },
   { id: "shutouts", sortStat: "shutouts", statKey: "shutouts", label: "Shutouts", group: "pitching", order: "desc", qualified: false },
   { id: "hbp", sortStat: "hitBatsmen", statKey: "hitBatsmen", label: "Hit Batsmen", group: "pitching", order: "desc", qualified: false },
+  { id: "bf", sortStat: "battersFaced", statKey: "battersFaced", label: "Batters Faced", group: "pitching", order: "desc", qualified: false },
+  { id: "wp", sortStat: "wildPitches", statKey: "wildPitches", label: "Wild Pitches", group: "pitching", order: "desc", qualified: false },
+  { id: "balks", sortStat: "balks", statKey: "balks", label: "Balks", group: "pitching", order: "desc", qualified: false },
+  { id: "strike-pct", sortStat: "strikePercentage", statKey: "strikePercentage", label: "Strike %", group: "pitching", order: "desc", qualified: true },
 ];

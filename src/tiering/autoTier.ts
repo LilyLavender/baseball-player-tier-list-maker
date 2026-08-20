@@ -1,12 +1,12 @@
 import type { PoolPlayer } from "../types/mlb";
 import type { TierDefinition } from "../data/tiers";
 
-export type AutoTierScheme = "sf" | "sf-plus-minus";
+export type AutoTierScheme = "sf" | "sf-plus-minus" | "custom";
 
 export type AutoTierStrategy =
   | { kind: "interval"; size: number }
   | { kind: "per-unit" }
-  | { kind: "auto-grouping"; scheme: AutoTierScheme }
+  | { kind: "auto-grouping"; scheme: AutoTierScheme; customTiers?: TierDefinition[] }
   | { kind: "thresholds"; thresholds: number[] };
 
 export interface AutoTierResult {
@@ -36,6 +36,7 @@ function rankColor(index: number, total: number): string {
 
 interface Bucket {
   label: string;
+  color?: string;
   entries: ValuedEntry[];
 }
 
@@ -130,7 +131,19 @@ function naturalBreaks(entries: ValuedEntry[], maxGroups: number): ValuedEntry[]
   return groups;
 }
 
-function bucketByAutoGrouping(entries: ValuedEntry[], scheme: AutoTierScheme): Bucket[] {
+function bucketByAutoGrouping(
+  entries: ValuedEntry[],
+  scheme: AutoTierScheme,
+  customTiers?: TierDefinition[],
+): Bucket[] {
+  if (scheme === "custom" && customTiers && customTiers.length > 0) {
+    const groups = naturalBreaks(entries, customTiers.length);
+    return groups.map((group, index) => ({
+      label: customTiers[index].label,
+      color: customTiers[index].color,
+      entries: group,
+    }));
+  }
   const labels = scheme === "sf-plus-minus" ? SF_PLUS_MINUS_LABELS : SF_LABELS;
   const groups = naturalBreaks(entries, labels.length);
   return groups.map((group, index) => ({ label: labels[index], entries: group }));
@@ -194,7 +207,7 @@ export function generateAutoTiers(
       buckets = bucketByUnit(entries, order);
       break;
     case "auto-grouping":
-      buckets = bucketByAutoGrouping(entries, strategy.scheme);
+      buckets = bucketByAutoGrouping(entries, strategy.scheme, strategy.customTiers);
       break;
     case "thresholds":
       buckets = bucketByThresholds(entries, order, strategy.thresholds);
@@ -204,7 +217,7 @@ export function generateAutoTiers(
   const nonEmpty = buckets.filter((b) => b.entries.length > 0);
   const tiers: TierDefinition[] = nonEmpty.map((bucket, index) => ({
     label: bucket.label,
-    color: rankColor(index, nonEmpty.length),
+    color: bucket.color ?? rankColor(index, nonEmpty.length),
   }));
   const tierPlayers = nonEmpty.map((bucket) => bucket.entries.map((entry) => entry.player));
 

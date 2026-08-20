@@ -1,3 +1,4 @@
+import { classifyPosition } from "../data/positions";
 import type { PoolPlayer, Team } from "../types/mlb";
 
 const BASE_URL = "https://statsapi.mlb.com/api/v1";
@@ -17,6 +18,8 @@ interface TeamsResponse {
     teamName: string;
     abbreviation: string;
     locationName: string;
+    division?: { name: string };
+    league?: { name: string };
   }>;
 }
 
@@ -29,6 +32,8 @@ export async function fetchTeams(season?: number): Promise<Team[]> {
     teamName: team.teamName,
     abbreviation: team.abbreviation,
     locationName: team.locationName,
+    divisionName: team.division?.name,
+    leagueName: team.league?.name,
   }));
 }
 
@@ -47,7 +52,9 @@ export async function fetchRoster(teamId: number, season: number): Promise<PoolP
     id: entry.person.id,
     fullName: entry.person.fullName,
     positionAbbreviation: entry.position.abbreviation,
+    positionType: classifyPosition(entry.position.abbreviation),
     season,
+    teamId,
   }));
 }
 
@@ -83,6 +90,8 @@ interface StatSplitsResponse {
   stats: Array<{
     splits: Array<{
       player: { id: number; fullName: string };
+      team?: { id: number; name: string };
+      position?: { abbreviation: string };
       stat: Record<string, string | number>;
     }>;
   }>;
@@ -141,8 +150,31 @@ export async function fetchStatLeaders(query: StatLeadersQuery): Promise<PoolPla
   return splits.map((entry) => ({
     id: entry.player.id,
     fullName: entry.player.fullName,
+    positionAbbreviation: entry.position?.abbreviation,
+    positionType: classifyPosition(entry.position?.abbreviation),
     statLabel: query.statLabel,
     statValue: String(entry.stat[query.statKey] ?? ""),
     season: query.season,
+    teamId: entry.team?.id,
   }));
+}
+
+/**
+ * Fetches season stat values for every player on one team, for the pool's on-demand stat-threshold
+ * filter (works on players regardless of how they entered the pool, not just stat-leader queries).
+ */
+export async function fetchTeamSeasonStats(
+  teamId: number,
+  season: number,
+  group: "hitting" | "pitching",
+): Promise<Map<number, Record<string, string | number>>> {
+  const data = await getJson<StatSplitsResponse>(
+    `/stats?stats=season&group=${group}&season=${season}&sportId=1&teamId=${teamId}&limit=100`,
+  );
+  const splits = data.stats[0]?.splits ?? [];
+  const byPlayerId = new Map<number, Record<string, string | number>>();
+  for (const entry of splits) {
+    byPlayerId.set(entry.player.id, entry.stat);
+  }
+  return byPlayerId;
 }

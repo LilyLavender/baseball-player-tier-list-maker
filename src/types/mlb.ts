@@ -4,16 +4,23 @@ export interface Team {
   teamName: string;
   abbreviation: string;
   locationName: string;
+  divisionName?: string;
+  leagueName?: string;
 }
+
+export type PositionType = "hitter" | "pitcher";
 
 export interface PoolPlayer {
   id: number;
   fullName: string;
   positionAbbreviation?: string;
+  positionType?: PositionType;
   statLabel?: string;
   statValue?: string;
   /** Season this player was pulled in for, used to try a period-accurate portrait. */
   season?: number;
+  teamId?: number;
+  teamAbbreviation?: string;
 }
 
 /**
