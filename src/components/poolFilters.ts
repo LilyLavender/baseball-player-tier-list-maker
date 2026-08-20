@@ -5,7 +5,6 @@ import { flagForCountry } from "../data/countryFlags";
 export type PositionFilter = "all" | PositionType;
 
 const SPECIFIC_POSITIONS = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "OF", "DH", "P", "TWP"];
-const SPECIFIC_POSITION_LABELS: Record<string, string> = { TWP: "TWP (Two-Way)" };
 /** A two-way player's `positionAbbreviation` is just "TWP", so treat them as playing both. */
 const TWO_WAY_SPECIFIC_POSITIONS = ["P", "DH"];
 
@@ -133,7 +132,7 @@ export function renderPoolFilters(teams: Team[], countries: string[] = []): stri
         <label class="pool-filters__field">
           Specific position
           <select id="pf-specific-positions" multiple size="4" class="pool-filters__team-select">
-            ${SPECIFIC_POSITIONS.map((pos) => `<option value="${pos}">${SPECIFIC_POSITION_LABELS[pos] ?? pos}</option>`).join("")}
+            ${SPECIFIC_POSITIONS.map((pos) => `<option value="${pos}">${pos}</option>`).join("")}
           </select>
         </label>
         <label class="pool-filters__field">
