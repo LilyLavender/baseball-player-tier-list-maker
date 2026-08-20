@@ -8,7 +8,7 @@ function optionRowsHtml(options: ComboBoxOption[]): string {
   return options
     .map(
       (opt) => `
-        <div class="combo__option" data-value="${opt.value}">
+        <div class="combo__option" role="option" aria-selected="false" data-value="${opt.value}">
           ${opt.iconUrl ? `<img class="combo__option-icon" src="${opt.iconUrl}" alt="" loading="lazy" />` : ""}
           <span>${opt.label}</span>
         </div>
@@ -32,10 +32,15 @@ export function renderComboBox(
         class="combo__input"
         id="${id}-input"
         placeholder="${placeholder}"
+        aria-label="${placeholder.replace(/…$/, "")}"
         autocomplete="off"
+        role="combobox"
+        aria-expanded="false"
+        aria-controls="${id}-list"
+        aria-autocomplete="list"
         value="${selected?.label ?? ""}"
       />
-      <div class="combo__list" id="${id}-list" hidden>${optionRowsHtml(options)}</div>
+      <div class="combo__list" id="${id}-list" role="listbox" hidden>${optionRowsHtml(options)}</div>
     </div>
   `;
 }
@@ -87,11 +92,13 @@ export function bindComboBox(
 
   function openList(): void {
     list.hidden = false;
+    input.setAttribute("aria-expanded", "true");
     filterList(input.value === currentLabel() ? "" : input.value);
   }
 
   function closeList(): void {
     list.hidden = true;
+    input.setAttribute("aria-expanded", "false");
     input.value = currentLabel();
   }
 

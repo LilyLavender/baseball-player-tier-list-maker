@@ -25,6 +25,7 @@ export function renderTierBoard(tiers: TierDefinition[], tierPlayers: PoolPlayer
               data-tier-index="${index}"
               value="${tier.color}"
               title="Tier color"
+              aria-label="Color for tier ${tier.label}"
             />
             <input
               type="text"
@@ -32,14 +33,15 @@ export function renderTierBoard(tiers: TierDefinition[], tierPlayers: PoolPlayer
               data-tier-index="${index}"
               value="${tier.label}"
               maxlength="12"
+              aria-label="Name for tier ${index + 1}"
             />
             <div class="tier-row__controls">
-              <button type="button" class="tier-row__ctrl" data-action="up" data-tier-index="${index}" title="Move tier up">▲</button>
-              <button type="button" class="tier-row__ctrl" data-action="down" data-tier-index="${index}" title="Move tier down">▼</button>
-              <button type="button" class="tier-row__ctrl tier-row__ctrl--delete" data-action="delete" data-tier-index="${index}" title="Delete tier">✕</button>
+              <button type="button" class="tier-row__ctrl" data-action="up" data-tier-index="${index}" title="Move tier up" aria-label="Move tier ${tier.label} up"><span aria-hidden="true">▲</span></button>
+              <button type="button" class="tier-row__ctrl" data-action="down" data-tier-index="${index}" title="Move tier down" aria-label="Move tier ${tier.label} down"><span aria-hidden="true">▼</span></button>
+              <button type="button" class="tier-row__ctrl tier-row__ctrl--delete" data-action="delete" data-tier-index="${index}" title="Delete tier" aria-label="Delete tier ${tier.label}"><span aria-hidden="true">✕</span></button>
             </div>
           </div>
-          <div id="tier-cards-${index}" class="tier-row__cards sortable-zone">${cards}</div>
+          <div id="tier-cards-${index}" class="tier-row__cards sortable-zone" role="list" aria-label="Players in tier ${tier.label}">${cards}</div>
         </div>
       `;
     })

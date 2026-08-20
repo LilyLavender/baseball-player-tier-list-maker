@@ -10,7 +10,7 @@ export function renderPlayerCard(player: PoolPlayer): string {
   const fallbackSrc = headshotUrl(player.id);
 
   return `
-    <div class="player-card" data-player-id="${player.id}">
+    <div class="player-card" data-player-id="${player.id}" role="listitem" aria-label="${player.fullName}">
       <img
         class="player-card__headshot"
         src="${primarySrc}"

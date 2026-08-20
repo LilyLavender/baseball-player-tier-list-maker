@@ -236,14 +236,23 @@ function bindPoolFilterControls(): void {
       const birthCountriesPromise =
         state.birthCountries.size > 0 ? ensureBirthCountries(poolPlayers) : Promise.resolve();
 
+      const statusEl = document.querySelector<HTMLSpanElement>("#pf-status");
+      const applyButton = document.querySelector<HTMLButtonElement>("#pf-apply");
+      if (statusEl) statusEl.textContent = "Applying…";
+      if (applyButton) applyButton.disabled = true;
+
       void Promise.all([statValuesPromise, birthCountriesPromise])
         .then(([values]) => {
           currentStatValues = values;
           applyPoolFilterToDom();
+          if (statusEl) statusEl.textContent = "";
         })
         .catch((error) => {
           console.error(error);
-          window.alert("Couldn't load data for the pool filter. Try again.");
+          if (statusEl) statusEl.textContent = "Couldn't load data for the pool filter. Try again.";
+        })
+        .finally(() => {
+          if (applyButton) applyButton.disabled = false;
         });
     },
     () => {
@@ -601,19 +610,39 @@ async function openSavedList(id: string): Promise<void> {
   bindQueryBuilderCallbacks();
 }
 
+function renderInitError(): void {
+  app.innerHTML = `
+    <div class="state-banner state-banner--error" style="padding: 2rem; justify-content: center;">
+      <span>Couldn't load MLB team data. Check your connection and try again.</span>
+      <button type="button" id="init-retry" class="state-banner__retry">Retry</button>
+    </div>
+  `;
+  document.querySelector<HTMLButtonElement>("#init-retry")!.addEventListener("click", () => {
+    void init();
+  });
+}
+
 async function init(): Promise<void> {
   renderShell(
     `<h2 class="query-builder__heading">Build your pool</h2><p class="query-builder__placeholder">Loading teams…</p>`,
     `<p class="pool__placeholder">Players will appear here once a query runs.</p>`,
   );
 
-  const [fetchedTeams, activeCountries] = await Promise.all([
-    fetchTeams(),
-    fetchActivePlayerBirthCountries(CURRENT_YEAR).catch((error) => {
-      console.error("Couldn't load active player birth countries", error);
-      return { byPlayerId: new Map<number, string>(), countries: [] };
-    }),
-  ]);
+  let fetchedTeams: Team[];
+  let activeCountries: { byPlayerId: Map<number, string>; countries: string[] };
+  try {
+    [fetchedTeams, activeCountries] = await Promise.all([
+      fetchTeams(),
+      fetchActivePlayerBirthCountries(CURRENT_YEAR).catch((error) => {
+        console.error("Couldn't load active player birth countries", error);
+        return { byPlayerId: new Map<number, string>(), countries: [] };
+      }),
+    ]);
+  } catch (error) {
+    console.error("Couldn't load teams", error);
+    renderInitError();
+    return;
+  }
   teams = fetchedTeams;
   activeCountryByPlayerId = activeCountries.byPlayerId;
   countryFilterOptions = activeCountries.countries;

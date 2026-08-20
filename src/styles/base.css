@@ -586,6 +586,15 @@ body {
   background: var(--color-bg);
 }
 
+.player-search__result--empty {
+  color: var(--color-text-muted);
+  cursor: default;
+}
+
+.player-search__result--empty:hover {
+  background: none;
+}
+
 .pool__clear {
   font: inherit;
   font-size: 0.75rem;
@@ -867,4 +876,123 @@ body {
   text-align: center;
   font-size: 1rem;
   line-height: 1.25;
+}
+
+.state-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.state-banner--error {
+  color: var(--color-danger);
+}
+
+.state-banner__retry {
+  font: inherit;
+  font-weight: 600;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.state-banner__retry:hover {
+  filter: brightness(0.9);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .remove-zone {
+    transition: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .query-builder {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .topbar {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .topbar__controls {
+    flex-wrap: wrap;
+    row-gap: 0.4rem;
+  }
+
+  .pool__header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .pool__header-actions {
+    flex-wrap: wrap;
+  }
+
+  .player-search__input {
+    width: min(12rem, 60vw);
+  }
+
+  .player-search__results,
+  .combo__list {
+    max-width: calc(100vw - 2rem);
+  }
+
+  .tier-row__label {
+    width: 5rem;
+    padding: 0.3rem;
+  }
+
+  .tier-row__label:not(:focus-within) .tier-row__name {
+    font-size: 1.2rem;
+  }
+
+  .remove-zone {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: 5rem;
+  }
+
+  .remove-zone__content {
+    flex-direction: row;
+    font-size: 0.9rem;
+  }
+
+  .remove-zone__icon {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar__wordmark {
+    font-size: 1rem;
+  }
+
+  .player-card {
+    width: 5.75rem;
+    height: 6.5rem;
+  }
+
+  .tier-row__label {
+    width: 4rem;
+  }
+
+  .tier-row__controls {
+    flex-wrap: wrap;
+  }
 }

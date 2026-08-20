@@ -8,5 +8,5 @@ export function renderPlayerPool(players: PoolPlayer[]): string {
   }
 
   const cards = sortByLastName(players).map(renderPlayerCard).join("");
-  return `<div id="pool-cards" class="pool__cards sortable-zone">${cards}</div>`;
+  return `<div id="pool-cards" class="pool__cards sortable-zone" role="list" aria-label="Unranked player pool">${cards}</div>`;
 }

@@ -40,9 +40,9 @@ export function renderHistoryPanel(lists: SavedList[]): string {
 
   return `
     <div id="history-overlay" class="history-overlay">
-      <div class="history-panel">
+      <div class="history-panel" role="dialog" aria-modal="true" aria-labelledby="history-panel-title">
         <div class="history-panel__header">
-          <h2>Saved lists</h2>
+          <h2 id="history-panel-title">Saved lists</h2>
           <button type="button" id="history-close">Close</button>
         </div>
         <ul class="history-panel__list">${rows}</ul>
@@ -53,13 +53,16 @@ export function renderHistoryPanel(lists: SavedList[]): string {
 
 export function bindHistoryPanel(callbacks: HistoryPanelCallbacks): void {
   const overlay = document.querySelector<HTMLDivElement>("#history-overlay")!;
+  const closeButton = document.querySelector<HTMLButtonElement>("#history-close")!;
 
   overlay.addEventListener("click", (event) => {
     if (event.target === overlay) callbacks.onClose();
   });
-  document
-    .querySelector<HTMLButtonElement>("#history-close")!
-    .addEventListener("click", () => callbacks.onClose());
+  overlay.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") callbacks.onClose();
+  });
+  closeButton.addEventListener("click", () => callbacks.onClose());
+  closeButton.focus();
 
   overlay.querySelectorAll<HTMLLIElement>(".history-panel__row").forEach((row) => {
     const id = row.dataset.listId!;

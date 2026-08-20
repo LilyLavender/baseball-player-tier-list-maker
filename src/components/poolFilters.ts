@@ -123,10 +123,10 @@ export function renderPoolFilters(teams: Team[], countries: string[] = []): stri
         </div>
         <div class="pool-filters__field">
           <span class="pool-filters__label">Position</span>
-          <div class="pool-filters__toggle" id="pf-position" role="group" data-active="all">
-            <button type="button" class="pool-filters__toggle-btn pool-filters__toggle-btn--active" data-value="all">All</button>
-            <button type="button" class="pool-filters__toggle-btn" data-value="hitter">Hitters</button>
-            <button type="button" class="pool-filters__toggle-btn" data-value="pitcher">Pitchers</button>
+          <div class="pool-filters__toggle" id="pf-position" role="group" aria-label="Position" data-active="all">
+            <button type="button" class="pool-filters__toggle-btn pool-filters__toggle-btn--active" data-value="all" aria-pressed="true">All</button>
+            <button type="button" class="pool-filters__toggle-btn" data-value="hitter" aria-pressed="false">Hitters</button>
+            <button type="button" class="pool-filters__toggle-btn" data-value="pitcher" aria-pressed="false">Pitchers</button>
           </div>
         </div>
         <label class="pool-filters__field">
@@ -167,6 +167,7 @@ export function renderPoolFilters(teams: Team[], countries: string[] = []): stri
         </label>
         <button type="button" id="pf-apply" class="pool-filters__apply">Apply filters</button>
         <button type="button" id="pf-clear" class="pool-filters__clear">Clear filters</button>
+        <span id="pf-status" class="pool-filters__label" role="status" aria-live="polite"></span>
       </div>
     </div>
   `;
@@ -198,9 +199,11 @@ export function syncPoolFilterUI(state: PoolFilterState): void {
     opt.selected = state.teamIds.has(Number(opt.value));
   });
   positionGroup.dataset.active = state.position;
-  positionGroup
-    .querySelectorAll<HTMLButtonElement>(".pool-filters__toggle-btn")
-    .forEach((b) => b.classList.toggle("pool-filters__toggle-btn--active", b.dataset.value === state.position));
+  positionGroup.querySelectorAll<HTMLButtonElement>(".pool-filters__toggle-btn").forEach((b) => {
+    const active = b.dataset.value === state.position;
+    b.classList.toggle("pool-filters__toggle-btn--active", active);
+    b.setAttribute("aria-pressed", String(active));
+  });
   Array.from(specificPositionSelect.options).forEach((opt) => {
     opt.selected = state.specificPositions.has(opt.value);
   });
@@ -242,9 +245,10 @@ export function bindPoolFilters(
   positionGroup.querySelectorAll<HTMLButtonElement>(".pool-filters__toggle-btn").forEach((button) => {
     button.addEventListener("click", () => {
       positionGroup.dataset.active = button.dataset.value ?? "all";
-      positionGroup
-        .querySelectorAll(".pool-filters__toggle-btn")
-        .forEach((b) => b.classList.toggle("pool-filters__toggle-btn--active", b === button));
+      positionGroup.querySelectorAll<HTMLButtonElement>(".pool-filters__toggle-btn").forEach((b) => {
+        b.classList.toggle("pool-filters__toggle-btn--active", b === button);
+        b.setAttribute("aria-pressed", String(b === button));
+      });
     });
   });
 
