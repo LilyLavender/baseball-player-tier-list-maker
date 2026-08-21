@@ -167,6 +167,9 @@ function bindTierBoardCallbacks(): void {
       const emptyTiers = currentTiers.map(() => []);
       rerenderBoardAndPool(emptyTiers, playersFromIds([...poolIds, ...tieredIds]));
     },
+    onGenerateAutoTiers: (strategy) => {
+      applyAutoTiers(strategy);
+    },
   });
 }
 
@@ -660,9 +663,6 @@ function bindQueryBuilderCallbacks(): void {
     },
     onApplyStat: (params) => {
       void loadStatPool(params);
-    },
-    onGenerateAutoTiers: (strategy) => {
-      applyAutoTiers(strategy);
     },
   });
 }

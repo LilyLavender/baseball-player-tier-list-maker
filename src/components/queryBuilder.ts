@@ -4,7 +4,7 @@ import { fetchTeams } from "../api/mlbApi";
 import { qualifierFor, statOptions, STAT_CATEGORIES } from "../data/statCategories";
 import { bindComboBox, getComboBoxValue, renderComboBox, setComboBoxOptions } from "./comboBox";
 import type { ComboBoxOption } from "./comboBox";
-import type { AutoTierStrategy } from "../tiering/autoTier";
+import { bindConditionalField } from "../utils/conditionalField";
 
 export interface StatQueryParams {
   statCategoryId: string;
@@ -19,7 +19,6 @@ export interface StatQueryParams {
 export interface QueryBuilderCallbacks {
   onApplyTeam: (teamId: number | "all", season: number) => void;
   onApplyStat: (params: StatQueryParams) => void;
-  onGenerateAutoTiers: (strategy: AutoTierStrategy) => void;
 }
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -119,57 +118,7 @@ export function renderQueryBuilder(
       </label>
       <button id="qb-stat-apply" type="button">Apply</button>
     </div>
-
-    <h2 class="query-builder__heading query-builder__heading--stat">Auto-tier from pool</h2>
-    <p class="query-builder__placeholder">Builds tiers from stat values already in the pool. Run a stat leaders query first.</p>
-    <label class="query-builder__field">
-      Strategy
-      <select id="qb-autotier-strategy">
-        <option value="interval">Fixed interval</option>
-        <option value="per-unit">One tier per value</option>
-        <option value="auto-grouping">Auto S-F grouping (natural breaks)</option>
-        <option value="thresholds">Custom thresholds</option>
-      </select>
-    </label>
-    <label class="query-builder__field" id="qb-autotier-interval-field">
-      Interval size
-      <input id="qb-autotier-interval" type="number" value="10" min="0.1" step="0.1" />
-    </label>
-    <label class="query-builder__field query-builder__field--checkbox" id="qb-autotier-empty-field" hidden>
-      <input id="qb-autotier-empty" type="checkbox" />
-      Show empty tiers between values
-    </label>
-    <label class="query-builder__field" id="qb-autotier-thresholds-field" hidden>
-      Thresholds (comma-separated)
-      <input id="qb-autotier-thresholds" type="text" placeholder="e.g. 40, 30, 20, 10" />
-    </label>
-    <label class="query-builder__field" id="qb-autotier-scheme-field" hidden>
-      Tier scheme
-      <select id="qb-autotier-scheme">
-        <option value="sf">S-F (6 tiers)</option>
-        <option value="sf-plus-minus">S-F with +/- (up to 18 tiers)</option>
-        <option value="custom">Use current tier board's labels</option>
-      </select>
-    </label>
-    <button id="qb-autotier-apply" type="button">Generate Tiers</button>
   `;
-}
-
-/**
- * Shows `element` only when `select`'s current value matches one of `visibleFor`, and keeps it in
- * sync on every change. Runs once immediately so the initial hidden state always matches the
- * select's initial value, even if that doesn't match the field's hardcoded `hidden` attribute.
- */
-function bindConditionalField(
-  select: HTMLSelectElement,
-  element: HTMLElement,
-  visibleFor: string[],
-): void {
-  const sync = () => {
-    element.hidden = !visibleFor.includes(select.value);
-  };
-  select.addEventListener("change", sync);
-  sync();
 }
 
 function applyStatFieldDefaults(statId: string): void {
@@ -265,42 +214,5 @@ export function bindQueryBuilder(teams: Team[], callbacks: QueryBuilderCallbacks
       minQualifierValue:
         statMinQualifierInput.value === "" ? undefined : Number(statMinQualifierInput.value),
     });
-  });
-
-  const strategySelect = document.querySelector<HTMLSelectElement>("#qb-autotier-strategy")!;
-  const intervalField = document.querySelector<HTMLLabelElement>("#qb-autotier-interval-field")!;
-  const intervalInput = document.querySelector<HTMLInputElement>("#qb-autotier-interval")!;
-  const emptyTiersField = document.querySelector<HTMLLabelElement>("#qb-autotier-empty-field")!;
-  const emptyTiersCheckbox = document.querySelector<HTMLInputElement>("#qb-autotier-empty")!;
-  const thresholdsField = document.querySelector<HTMLLabelElement>("#qb-autotier-thresholds-field")!;
-  const thresholdsInput = document.querySelector<HTMLInputElement>("#qb-autotier-thresholds")!;
-  const schemeField = document.querySelector<HTMLLabelElement>("#qb-autotier-scheme-field")!;
-  const schemeSelect = document.querySelector<HTMLSelectElement>("#qb-autotier-scheme")!;
-  const autoTierApplyButton = document.querySelector<HTMLButtonElement>("#qb-autotier-apply")!;
-
-  bindConditionalField(strategySelect, intervalField, ["interval"]);
-  bindConditionalField(strategySelect, emptyTiersField, ["per-unit"]);
-  bindConditionalField(strategySelect, thresholdsField, ["thresholds"]);
-  bindConditionalField(strategySelect, schemeField, ["auto-grouping"]);
-
-  autoTierApplyButton.addEventListener("click", () => {
-    const kind = strategySelect.value;
-    if (kind === "interval") {
-      callbacks.onGenerateAutoTiers({ kind: "interval", size: Number(intervalInput.value) || 1 });
-    } else if (kind === "per-unit") {
-      callbacks.onGenerateAutoTiers({ kind: "per-unit", showEmptyTiers: emptyTiersCheckbox.checked });
-    } else if (kind === "auto-grouping") {
-      const scheme =
-        schemeSelect.value === "sf-plus-minus" || schemeSelect.value === "custom"
-          ? schemeSelect.value
-          : "sf";
-      callbacks.onGenerateAutoTiers({ kind: "auto-grouping", scheme });
-    } else if (kind === "thresholds") {
-      const thresholds = thresholdsInput.value
-        .split(",")
-        .map((part) => Number(part.trim()))
-        .filter((n) => Number.isFinite(n));
-      callbacks.onGenerateAutoTiers({ kind: "thresholds", thresholds });
-    }
   });
 }
