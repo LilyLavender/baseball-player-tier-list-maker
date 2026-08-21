@@ -43,6 +43,8 @@ import {
 import { applyTheme, loadThemePref, saveThemePref } from "./storage/themePref";
 import type { ThemeName } from "./storage/themePref";
 import { applyStatBadgePref, loadStatBadgePref, saveStatBadgePref } from "./storage/statBadgePref";
+import { loadPoolPositionPref, savePoolPositionPref } from "./storage/poolPositionPref";
+import type { PoolPosition } from "./storage/poolPositionPref";
 import { bindHistoryPanel, renderHistoryPanel } from "./components/historyPanel";
 import { qualifierFor, STAT_CATEGORIES } from "./data/statCategories";
 import { cloneDefaultTiers } from "./data/tiers";
@@ -69,6 +71,38 @@ const teamStatCache = new Map<string, Map<number, number>>();
 let activeCountryByPlayerId = new Map<number, string>();
 let countryFilterOptions: string[] = [];
 let poolDrawerOpen = true;
+let poolPositionPref: PoolPosition = loadPoolPositionPref();
+
+const POOL_RAIL_MEDIA_QUERY = window.matchMedia("(min-width: 901px)");
+const POOL_POSITION_ORDER: PoolPosition[] = ["auto", "rail", "drawer"];
+const POOL_POSITION_ICON: Record<PoolPosition, string> = { auto: "⇄", rail: "▥", drawer: "▬" };
+const POOL_POSITION_LABEL: Record<PoolPosition, string> = {
+  auto: "Pool position: Auto (rail on desktop, drawer on mobile)",
+  rail: "Pool position: Always side rail",
+  drawer: "Pool position: Always bottom drawer",
+};
+
+function effectivePoolMode(): "rail" | "drawer" {
+  if (poolPositionPref === "rail") return "rail";
+  if (poolPositionPref === "drawer") return "drawer";
+  return POOL_RAIL_MEDIA_QUERY.matches ? "rail" : "drawer";
+}
+
+function syncPoolLayoutMode(): void {
+  const layout = document.querySelector<HTMLElement>(".layout");
+  layout?.classList.toggle("layout--pool-drawer", effectivePoolMode() === "drawer");
+}
+
+function syncPoolPositionToggle(): void {
+  const icon = document.querySelector<HTMLSpanElement>("#pool-position-icon");
+  const button = document.querySelector<HTMLButtonElement>("#pool-position-toggle");
+  if (!icon || !button) return;
+  icon.textContent = POOL_POSITION_ICON[poolPositionPref];
+  button.setAttribute("aria-label", POOL_POSITION_LABEL[poolPositionPref]);
+  button.title = POOL_POSITION_LABEL[poolPositionPref];
+}
+
+POOL_RAIL_MEDIA_QUERY.addEventListener("change", syncPoolLayoutMode);
 
 function rememberPlayers(players: PoolPlayer[]): void {
   for (const player of players) {
@@ -379,6 +413,9 @@ function renderShell(
         <button id="theme-toggle" type="button" class="topbar__theme-toggle" title="Toggle light/dark theme">
           <span class="topbar__theme-toggle-icon" aria-hidden="true">🌙</span>
         </button>
+        <button id="pool-position-toggle" type="button" class="topbar__theme-toggle" title="Pool position">
+          <span id="pool-position-icon" aria-hidden="true"></span>
+        </button>
         <label class="topbar__checkbox">
           <input id="stat-badge-toggle" type="checkbox" />
           Show stat numbers
@@ -416,6 +453,16 @@ function renderShell(
   bindPoolFilterControls();
   bindPoolDrawerToggle();
   applyPoolFilterToDom();
+  syncPoolLayoutMode();
+  syncPoolPositionToggle();
+
+  document.querySelector<HTMLButtonElement>("#pool-position-toggle")!.addEventListener("click", () => {
+    const currentIndex = POOL_POSITION_ORDER.indexOf(poolPositionPref);
+    poolPositionPref = POOL_POSITION_ORDER[(currentIndex + 1) % POOL_POSITION_ORDER.length];
+    savePoolPositionPref(poolPositionPref);
+    syncPoolPositionToggle();
+    syncPoolLayoutMode();
+  });
 
   document.querySelector<HTMLButtonElement>("#save-list")!.addEventListener("click", () => {
     let title = currentListId ? getSavedList(currentListId)?.title : undefined;

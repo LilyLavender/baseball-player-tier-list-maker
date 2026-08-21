@@ -132,6 +132,43 @@ body {
   border-left: 1px solid var(--color-border);
 }
 
+/*
+ * Drawer mode: the pool position preference can force this at any viewport width (not just
+ * mobile), so it's keyed off a class the app toggles based on the effective mode, not a media
+ * query alone.
+ */
+@media (min-width: 901px) {
+  .layout--pool-drawer {
+    grid-template-columns: 260px 1fr;
+  }
+}
+
+.layout--pool-drawer .pool-rail {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: auto;
+  max-height: 70vh;
+  overflow-y: auto;
+  border-left: none;
+  border-top: 2px solid var(--color-border);
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 80;
+}
+
+.layout--pool-drawer .pool-rail:not(.pool-rail--open) .pool__body {
+  display: none;
+}
+
+.layout--pool-drawer .pool__drawer-toggle {
+  display: inline-flex;
+}
+
+.layout--pool-drawer .board-wrap {
+  padding-bottom: 4rem;
+}
+
 .query-builder__heading {
   font-family: var(--font-display);
   text-transform: uppercase;
@@ -958,30 +995,11 @@ body {
     border-bottom: 1px solid var(--color-border);
   }
 
-  .board-wrap {
-    padding-bottom: 4rem;
-  }
-
   .pool-rail {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
     height: auto;
-    max-height: 70vh;
-    overflow-y: auto;
+    overflow-y: visible;
     border-left: none;
-    border-top: 2px solid var(--color-border);
-    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
-    z-index: 80;
-  }
-
-  .pool-rail:not(.pool-rail--open) .pool__body {
-    display: none;
-  }
-
-  .pool__drawer-toggle {
-    display: inline-flex;
+    border-top: 1px solid var(--color-border);
   }
 
   .topbar {
