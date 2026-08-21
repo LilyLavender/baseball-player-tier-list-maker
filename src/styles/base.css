@@ -556,14 +556,56 @@ body {
 }
 
 .pool-filters {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
   margin-bottom: 0.75rem;
-  padding: 0.6rem;
   border: 1px solid var(--color-border);
   border-radius: 3px;
   background: var(--color-bg);
+  overflow: hidden;
+}
+
+.pool-filters__disclosure {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.pool-filters__disclosure:hover {
+  color: var(--color-primary);
+}
+
+.pool-filters__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.2rem;
+  height: 1.2rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: var(--color-chalk-white);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.pool-filters__disclosure-icon {
+  margin-left: auto;
+  color: var(--color-text-muted);
+}
+
+.pool-filters__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0 0.6rem 0.6rem;
 }
 
 .pool-filters__row {

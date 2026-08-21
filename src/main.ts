@@ -290,6 +290,7 @@ function bindPoolFilterControls(): void {
     teams,
     (state) => {
       currentPoolFilter = state;
+      syncPoolFilterUI(currentPoolFilter);
       const poolPlayers = playersFromIds(collectPoolPlayerIds());
 
       const statValuesPromise =
@@ -321,6 +322,7 @@ function bindPoolFilterControls(): void {
     () => {
       currentPoolFilter = emptyPoolFilterState();
       currentStatValues = new Map();
+      syncPoolFilterUI(currentPoolFilter);
       applyPoolFilterToDom();
     },
   );

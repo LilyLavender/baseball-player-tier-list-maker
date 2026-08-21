@@ -33,13 +33,18 @@ export function emptyPoolFilterState(): PoolFilterState {
 }
 
 export function isPoolFilterActive(state: PoolFilterState): boolean {
-  return (
-    state.teamIds.size > 0 ||
-    state.position !== "all" ||
-    state.specificPositions.size > 0 ||
-    state.birthCountries.size > 0 ||
-    state.statCategoryId !== null
-  );
+  return poolFilterActiveCount(state) > 0;
+}
+
+/** Number of independent filter dimensions currently active, for the "Filter pool" badge. */
+export function poolFilterActiveCount(state: PoolFilterState): number {
+  let count = 0;
+  if (state.teamIds.size > 0) count++;
+  if (state.position !== "all") count++;
+  if (state.specificPositions.size > 0) count++;
+  if (state.birthCountries.size > 0) count++;
+  if (state.statCategoryId !== null) count++;
+  return count;
 }
 
 /**
@@ -90,6 +95,8 @@ function groupTeamsByDivision(teams: Team[]): Map<string, Team[]> {
   return groups;
 }
 
+let filtersOpen = false;
+
 export function renderPoolFilters(teams: Team[], countries: string[] = []): string {
   const divisions = groupTeamsByDivision(teams);
   const divisionChips = Array.from(divisions.keys())
@@ -114,60 +121,73 @@ export function renderPoolFilters(teams: Team[], countries: string[] = []): stri
 
   return `
     <div class="pool-filters">
-      <div class="pool-filters__row">
-        <div class="pool-filters__team-picker">
-          <div class="pool-filters__chips">${divisionChips}</div>
-          <select id="pf-teams" multiple size="4" class="pool-filters__team-select">
-            ${teamOptionGroups}
-          </select>
-        </div>
-        <div class="pool-filters__field">
-          <span class="pool-filters__label">Position</span>
-          <div class="pool-filters__toggle" id="pf-position" role="group" aria-label="Position" data-active="all">
-            <button type="button" class="pool-filters__toggle-btn pool-filters__toggle-btn--active" data-value="all" aria-pressed="true">All</button>
-            <button type="button" class="pool-filters__toggle-btn" data-value="hitter" aria-pressed="false">Hitters</button>
-            <button type="button" class="pool-filters__toggle-btn" data-value="pitcher" aria-pressed="false">Pitchers</button>
+      <button
+        type="button"
+        id="pf-toggle"
+        class="pool-filters__disclosure"
+        aria-expanded="${filtersOpen}"
+        aria-controls="pool-filters-body"
+      >
+        <span>Filter pool</span>
+        <span id="pf-badge" class="pool-filters__badge" hidden>0</span>
+        <span class="pool-filters__disclosure-icon" aria-hidden="true">${filtersOpen ? "▾" : "▸"}</span>
+      </button>
+      <div id="pool-filters-body" class="pool-filters__body"${filtersOpen ? "" : " hidden"}>
+        <div class="pool-filters__row">
+          <div class="pool-filters__team-picker">
+            <div class="pool-filters__chips">${divisionChips}</div>
+            <select id="pf-teams" multiple size="4" class="pool-filters__team-select">
+              ${teamOptionGroups}
+            </select>
           </div>
+          <div class="pool-filters__field">
+            <span class="pool-filters__label">Position</span>
+            <div class="pool-filters__toggle" id="pf-position" role="group" aria-label="Position" data-active="all">
+              <button type="button" class="pool-filters__toggle-btn pool-filters__toggle-btn--active" data-value="all" aria-pressed="true">All</button>
+              <button type="button" class="pool-filters__toggle-btn" data-value="hitter" aria-pressed="false">Hitters</button>
+              <button type="button" class="pool-filters__toggle-btn" data-value="pitcher" aria-pressed="false">Pitchers</button>
+            </div>
+          </div>
+          <label class="pool-filters__field">
+            Specific position
+            <select id="pf-specific-positions" multiple size="4" class="pool-filters__team-select">
+              ${SPECIFIC_POSITIONS.map((pos) => `<option value="${pos}">${pos}</option>`).join("")}
+            </select>
+          </label>
+          <label class="pool-filters__field">
+            Country of birth
+            <select id="pf-countries" multiple size="4" class="pool-filters__team-select">
+              ${countries
+                .map((country) => `<option value="${country}">${flagForCountry(country)} ${country}</option>`)
+                .join("")}
+            </select>
+          </label>
         </div>
-        <label class="pool-filters__field">
-          Specific position
-          <select id="pf-specific-positions" multiple size="4" class="pool-filters__team-select">
-            ${SPECIFIC_POSITIONS.map((pos) => `<option value="${pos}">${pos}</option>`).join("")}
-          </select>
-        </label>
-        <label class="pool-filters__field">
-          Country of birth
-          <select id="pf-countries" multiple size="4" class="pool-filters__team-select">
-            ${countries
-              .map((country) => `<option value="${country}">${flagForCountry(country)} ${country}</option>`)
-              .join("")}
-          </select>
-        </label>
-      </div>
-      <div class="pool-filters__row">
-        <label class="pool-filters__field">
-          Stat
-          <select id="pf-stat">
-            <option value="">No stat filter</option>
-            ${statOpts}
-          </select>
-        </label>
-        <label class="pool-filters__field">
-          <select id="pf-comparator">
-            <option value=">=">at least</option>
-            <option value="<=">at most</option>
-          </select>
-        </label>
-        <label class="pool-filters__field">
-          <input id="pf-stat-value" type="number" placeholder="value" step="any" />
-        </label>
-        <label class="pool-filters__field pool-filters__field--checkbox">
-          <input id="pf-qualified" type="checkbox" />
-          Qualified only
-        </label>
-        <button type="button" id="pf-apply" class="pool-filters__apply">Apply filters</button>
-        <button type="button" id="pf-clear" class="pool-filters__clear">Clear filters</button>
-        <span id="pf-status" class="pool-filters__label" role="status" aria-live="polite"></span>
+        <div class="pool-filters__row">
+          <label class="pool-filters__field">
+            Stat
+            <select id="pf-stat">
+              <option value="">No stat filter</option>
+              ${statOpts}
+            </select>
+          </label>
+          <label class="pool-filters__field">
+            <select id="pf-comparator">
+              <option value=">=">at least</option>
+              <option value="<=">at most</option>
+            </select>
+          </label>
+          <label class="pool-filters__field">
+            <input id="pf-stat-value" type="number" placeholder="value" step="any" />
+          </label>
+          <label class="pool-filters__field pool-filters__field--checkbox">
+            <input id="pf-qualified" type="checkbox" />
+            Qualified only
+          </label>
+          <button type="button" id="pf-apply" class="pool-filters__apply">Apply filters</button>
+          <button type="button" id="pf-clear" class="pool-filters__clear">Clear filters</button>
+          <span id="pf-status" class="pool-filters__label" role="status" aria-live="polite"></span>
+        </div>
       </div>
     </div>
   `;
@@ -214,6 +234,13 @@ export function syncPoolFilterUI(state: PoolFilterState): void {
   comparatorSelect.value = state.comparator;
   statValueInput.value = state.statValue === null ? "" : String(state.statValue);
   qualifiedCheckbox.checked = state.qualifiedOnly;
+
+  const badge = document.querySelector<HTMLSpanElement>("#pf-badge");
+  if (badge) {
+    const count = poolFilterActiveCount(state);
+    badge.textContent = String(count);
+    badge.hidden = count === 0;
+  }
 }
 
 export function bindPoolFilters(
@@ -231,6 +258,16 @@ export function bindPoolFilters(
   const qualifiedCheckbox = document.querySelector<HTMLInputElement>("#pf-qualified")!;
   const applyButton = document.querySelector<HTMLButtonElement>("#pf-apply")!;
   const clearButton = document.querySelector<HTMLButtonElement>("#pf-clear")!;
+  const disclosureToggle = document.querySelector<HTMLButtonElement>("#pf-toggle")!;
+  const disclosureBody = document.querySelector<HTMLDivElement>("#pool-filters-body")!;
+  const disclosureIcon = disclosureToggle.querySelector<HTMLSpanElement>(".pool-filters__disclosure-icon")!;
+
+  disclosureToggle.addEventListener("click", () => {
+    filtersOpen = !filtersOpen;
+    disclosureBody.hidden = !filtersOpen;
+    disclosureToggle.setAttribute("aria-expanded", String(filtersOpen));
+    disclosureIcon.textContent = filtersOpen ? "▾" : "▸";
+  });
 
   document.querySelectorAll<HTMLButtonElement>(".pool-filters__chip").forEach((chip) => {
     chip.addEventListener("click", () => {
