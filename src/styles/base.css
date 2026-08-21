@@ -105,15 +105,31 @@ body {
 
 .layout {
   display: grid;
-  grid-template-columns: 260px 1fr;
-  min-height: calc(100vh - 3.25rem);
+  grid-template-columns: 260px 1fr 300px;
+  height: calc(100vh - 3.25rem);
+  overflow: hidden;
 }
 
 .query-builder {
   position: relative;
+  height: 100%;
+  overflow-y: auto;
   background: var(--color-surface);
   border-right: 1px solid var(--color-border);
   padding: 1rem;
+}
+
+.board-wrap {
+  height: 100%;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.pool-rail {
+  height: 100%;
+  overflow-y: auto;
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
 }
 
 .query-builder__heading {
@@ -372,9 +388,22 @@ body {
 }
 
 .pool {
-  border-top: 1px solid var(--color-border);
-  background: var(--color-surface);
   padding: 0.75rem 1rem;
+}
+
+.pool__drawer-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
 }
 
 .pool__header {
@@ -914,12 +943,45 @@ body {
 @media (max-width: 900px) {
   .layout {
     grid-template-columns: 1fr;
-    min-height: 0;
+    height: auto;
+    overflow: visible;
+  }
+
+  .query-builder,
+  .board-wrap {
+    height: auto;
+    overflow: visible;
   }
 
   .query-builder {
     border-right: none;
     border-bottom: 1px solid var(--color-border);
+  }
+
+  .board-wrap {
+    padding-bottom: 4rem;
+  }
+
+  .pool-rail {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: auto;
+    max-height: 70vh;
+    overflow-y: auto;
+    border-left: none;
+    border-top: 2px solid var(--color-border);
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 80;
+  }
+
+  .pool-rail:not(.pool-rail--open) .pool__body {
+    display: none;
+  }
+
+  .pool__drawer-toggle {
+    display: inline-flex;
   }
 
   .topbar {

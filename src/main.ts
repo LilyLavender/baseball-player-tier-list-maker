@@ -68,6 +68,7 @@ let currentStatValues = new Map<number, number>();
 const teamStatCache = new Map<string, Map<number, number>>();
 let activeCountryByPlayerId = new Map<number, string>();
 let countryFilterOptions: string[] = [];
+let poolDrawerOpen = true;
 
 function rememberPlayers(players: PoolPlayer[]): void {
   for (const player of players) {
@@ -144,12 +145,37 @@ function renderPoolSection(poolContent: string): string {
           ${renderPlayerSearch()}
           <button id="return-all-to-pool" type="button" class="pool__clear">Return all to pool</button>
           <button id="clear-pool" type="button" class="pool__clear">Clear pool</button>
+          <button
+            id="pool-drawer-toggle"
+            type="button"
+            class="pool__drawer-toggle"
+            aria-expanded="${poolDrawerOpen}"
+            aria-controls="pool-body"
+            aria-label="${poolDrawerOpen ? "Collapse" : "Expand"} unranked pool"
+          ><span aria-hidden="true">${poolDrawerOpen ? "▾" : "▴"}</span></button>
         </div>
       </div>
-      ${renderPoolFilters(teams, countryFilterOptions)}
-      <div id="pool-content">${poolContent}</div>
+      <div id="pool-body" class="pool__body">
+        ${renderPoolFilters(teams, countryFilterOptions)}
+        <div id="pool-content">${poolContent}</div>
+      </div>
     </section>
   `;
+}
+
+function bindPoolDrawerToggle(): void {
+  const rail = document.querySelector<HTMLElement>("#pool-rail");
+  const toggle = document.querySelector<HTMLButtonElement>("#pool-drawer-toggle");
+  if (!rail || !toggle) return;
+
+  rail.classList.toggle("pool-rail--open", poolDrawerOpen);
+  toggle.addEventListener("click", () => {
+    poolDrawerOpen = !poolDrawerOpen;
+    rail.classList.toggle("pool-rail--open", poolDrawerOpen);
+    toggle.setAttribute("aria-expanded", String(poolDrawerOpen));
+    toggle.setAttribute("aria-label", poolDrawerOpen ? "Collapse unranked pool" : "Expand unranked pool");
+    toggle.querySelector("span")!.textContent = poolDrawerOpen ? "▾" : "▴";
+  });
 }
 
 async function ensureStatValues(
@@ -290,15 +316,17 @@ function bindClearPoolButton(): void {
 
 function rerenderBoardAndPool(tierPlayers: PoolPlayer[][], poolPlayers: PoolPlayer[]): void {
   const boardWrap = document.querySelector<HTMLDivElement>(".board-wrap")!;
-  boardWrap.innerHTML = `
-    ${renderTierBoard(currentTiers, tierPlayers)}
-    ${renderPoolSection(renderPlayerPool(poolPlayers))}
-  `;
+  boardWrap.innerHTML = renderTierBoard(currentTiers, tierPlayers);
+
+  const poolRail = document.querySelector<HTMLElement>("#pool-rail")!;
+  poolRail.innerHTML = renderPoolSection(renderPlayerPool(poolPlayers));
+
   initTierSortables(tierDropZoneIds(currentTiers.length));
   initPoolSortable();
   bindClearPoolButton();
   bindTierBoardCallbacks();
   bindPoolFilterControls();
+  bindPoolDrawerToggle();
   applyPoolFilterToDom();
 }
 
@@ -374,8 +402,10 @@ function renderShell(
       </aside>
       <div class="board-wrap">
         ${renderTierBoard(currentTiers, tierPlayers)}
-        ${renderPoolSection(poolContent)}
       </div>
+      <aside class="pool-rail" id="pool-rail">
+        ${renderPoolSection(poolContent)}
+      </aside>
     </div>
   `;
   initTierSortables(tierDropZoneIds(currentTiers.length));
@@ -384,6 +414,7 @@ function renderShell(
   bindTierBoardCallbacks();
   bindClearPoolButton();
   bindPoolFilterControls();
+  bindPoolDrawerToggle();
   applyPoolFilterToDom();
 
   document.querySelector<HTMLButtonElement>("#save-list")!.addEventListener("click", () => {
