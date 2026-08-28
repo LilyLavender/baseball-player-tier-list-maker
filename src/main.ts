@@ -53,6 +53,7 @@ import { generateAutoTiers } from "./tiering/autoTier";
 import type { AutoTierStrategy } from "./tiering/autoTier";
 import type { PoolPlayer, Team } from "./types/mlb";
 import { renderSpinner } from "./components/spinner";
+import { icon } from "./utils/icon";
 
 applyTheme(loadThemePref());
 applyStatBadgePref(loadStatBadgePref());
@@ -147,8 +148,8 @@ function renderPoolSection(poolContent: string): string {
         <div class="pool__header-actions">
           ${renderPlayerSearch()}
           ${renderPoolFilters(teams, countryFilterOptions)}
-          <button id="return-all-to-pool" type="button" class="pool__clear">Return all to pool</button>
-          <button id="clear-pool" type="button" class="pool__clear">Clear pool</button>
+          <button id="return-all-to-pool" type="button" class="pool__clear">${icon("undo")} Return all to pool</button>
+          <button id="clear-pool" type="button" class="pool__clear">${icon("clear_all")} Clear pool</button>
         </div>
       </div>
       <div id="pool-content">${poolContent}</div>
@@ -352,7 +353,7 @@ function renderShell(
 ): void {
   app.innerHTML = `
     <header class="topbar">
-      <span class="topbar__wordmark">MLB Tier List Maker</span>
+      <span class="topbar__wordmark">Baseball Tier List Maker</span>
       <div class="topbar__controls">
         <button id="theme-toggle" type="button" class="topbar__theme-toggle" title="Toggle light/dark theme">
           <span class="topbar__theme-toggle-icon material-symbols-outlined" aria-hidden="true">dark_mode</span>
@@ -361,10 +362,10 @@ function renderShell(
           <input id="stat-badge-toggle" type="checkbox" />
           Show stat numbers
         </label>
-        <button id="new-list" type="button" class="topbar__btn">New</button>
-        <button id="history-open" type="button" class="topbar__btn">History</button>
-        <button id="export-list" type="button" class="topbar__btn">Export</button>
-        <button id="save-list" type="button" class="topbar__save">Save</button>
+        <button id="new-list" type="button" class="topbar__btn">${icon("note_add")} New</button>
+        <button id="history-open" type="button" class="topbar__btn">${icon("history")} History</button>
+        <button id="export-list" type="button" class="topbar__btn">${icon("download")} Export</button>
+        <button id="save-list" type="button" class="topbar__save">${icon("save")} Save</button>
       </div>
     </header>
     <div class="layout">
@@ -616,8 +617,8 @@ async function openSavedList(id: string): Promise<void> {
 function renderInitError(): void {
   app.innerHTML = `
     <div class="state-banner state-banner--error" style="padding: 2rem; justify-content: center;">
-      <span>Couldn't load MLB team data. Check your connection and try again.</span>
-      <button type="button" id="init-retry" class="state-banner__retry">Retry</button>
+      <span>Couldn't load baseball team data. Check your connection and try again.</span>
+      <button type="button" id="init-retry" class="state-banner__retry">${icon("refresh")} Retry</button>
     </div>
   `;
   document.querySelector<HTMLButtonElement>("#init-retry")!.addEventListener("click", () => {

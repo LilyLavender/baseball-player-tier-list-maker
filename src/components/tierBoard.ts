@@ -98,7 +98,7 @@ export function renderTierBoard(tiers: TierDefinition[], tierPlayers: PoolPlayer
                 <option value="custom">Use current tier board's labels</option>
               </select>
             </label>
-            <button type="button" id="qb-autotier-apply" class="board__autotier-apply">Generate Tiers</button>
+            <button type="button" id="qb-autotier-apply" class="board__autotier-apply">${icon("auto_awesome")} Generate Tiers</button>
           </div>
         </div>
         <button type="button" id="reset-tiers" class="board__reset-tiers">${icon("restart_alt")} Reset tiers</button>

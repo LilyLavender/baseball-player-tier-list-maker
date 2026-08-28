@@ -44,6 +44,7 @@ const COUNTRY_FLAGS: Record<string, string> = {
   "Republic of Korea": "🇰🇷",
   "Saudi Arabia": "🇸🇦",
   Singapore: "🇸🇬",
+  Slovakia: "🇸🇰",
   "South Africa": "🇿🇦",
   "South Korea": "🇰🇷",
   Spain: "🇪🇸",

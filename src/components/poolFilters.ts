@@ -186,8 +186,8 @@ export function renderPoolFilters(teams: Team[], countries: string[] = []): stri
             <input id="pf-qualified" type="checkbox" />
             Qualified only
           </label>
-          <button type="button" id="pf-apply" class="pool-filters__apply">Apply filters</button>
-          <button type="button" id="pf-clear" class="pool-filters__clear">Clear filters</button>
+          <button type="button" id="pf-apply" class="pool-filters__apply">${icon("check")} Apply filters</button>
+          <button type="button" id="pf-clear" class="pool-filters__clear">${icon("clear_all")} Clear filters</button>
           <span id="pf-status" class="pool-filters__label" role="status" aria-live="polite"></span>
         </div>
       </div>

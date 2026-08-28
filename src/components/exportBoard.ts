@@ -48,6 +48,6 @@ export function renderExportSnapshot(
       <span>Generated ${generatedOn}</span>
     </div>
     <div class="export-board">${rows}</div>
-    <div class="export-footer">MLB Tier List Maker</div>
+    <div class="export-footer">Baseball Tier List Maker</div>
   `;
 }

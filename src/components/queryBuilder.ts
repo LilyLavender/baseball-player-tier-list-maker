@@ -5,6 +5,7 @@ import { qualifierFor, statOptions, STAT_CATEGORIES } from "../data/statCategori
 import { bindComboBox, getComboBoxValue, renderComboBox, setComboBoxOptions } from "./comboBox";
 import type { ComboBoxOption } from "./comboBox";
 import { bindConditionalField } from "../utils/conditionalField";
+import { icon } from "../utils/icon";
 
 export interface StatQueryParams {
   statCategoryId: string;
@@ -49,7 +50,7 @@ export function renderQueryBuilder(
         role="tab"
         aria-selected="true"
         aria-controls="qb-panel-team"
-      >Team &amp; Season</button>
+      >${icon("groups")} Team &amp; Season</button>
       <button
         type="button"
         id="qb-tab-stat"
@@ -58,7 +59,7 @@ export function renderQueryBuilder(
         aria-selected="false"
         aria-controls="qb-panel-stat"
         tabindex="-1"
-      >Stat Leaders</button>
+      >${icon("leaderboard")} Stat Leaders</button>
     </div>
 
     <div id="qb-panel-team" class="query-builder__panel" role="tabpanel" aria-labelledby="qb-tab-team">
@@ -75,7 +76,7 @@ export function renderQueryBuilder(
         Season
         <input id="qb-season" type="number" value="${teamSeason}" min="1901" max="${CURRENT_YEAR}" />
       </label>
-      <button id="qb-apply" type="button">Apply</button>
+      <button id="qb-apply" type="button">${icon("search")} Apply</button>
     </div>
 
     <div id="qb-panel-stat" class="query-builder__panel" role="tabpanel" aria-labelledby="qb-tab-stat" hidden>
@@ -116,7 +117,7 @@ export function renderQueryBuilder(
         Min <span id="qb-stat-qualifier-label">Plate Appearances</span>
         <input id="qb-stat-min-qualifier" type="number" placeholder="No minimum" step="any" />
       </label>
-      <button id="qb-stat-apply" type="button">Apply</button>
+      <button id="qb-stat-apply" type="button">${icon("search")} Apply</button>
     </div>
   `;
 }
