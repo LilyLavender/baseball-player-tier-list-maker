@@ -105,68 +105,15 @@ body {
 
 .layout {
   display: grid;
-  grid-template-columns: 260px 1fr 300px;
-  height: calc(100vh - 3.25rem);
-  overflow: hidden;
+  grid-template-columns: 260px 1fr;
+  min-height: calc(100vh - 3.25rem);
 }
 
 .query-builder {
   position: relative;
-  height: 100%;
-  overflow-y: auto;
   background: var(--color-surface);
   border-right: 1px solid var(--color-border);
   padding: 1rem;
-}
-
-.board-wrap {
-  height: 100%;
-  overflow-y: auto;
-  padding: 1rem;
-}
-
-.pool-rail {
-  height: 100%;
-  overflow-y: auto;
-  background: var(--color-surface);
-  border-left: 1px solid var(--color-border);
-}
-
-/*
- * Drawer mode: the pool position preference can force this at any viewport width (not just
- * mobile), so it's keyed off a class the app toggles based on the effective mode, not a media
- * query alone.
- */
-@media (min-width: 901px) {
-  .layout--pool-drawer {
-    grid-template-columns: 260px 1fr;
-  }
-}
-
-.layout--pool-drawer .pool-rail {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: auto;
-  max-height: 70vh;
-  overflow-y: auto;
-  border-left: none;
-  border-top: 2px solid var(--color-border);
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 80;
-}
-
-.layout--pool-drawer .pool-rail:not(.pool-rail--open) .pool__body {
-  display: none;
-}
-
-.layout--pool-drawer .pool__drawer-toggle {
-  display: inline-flex;
-}
-
-.layout--pool-drawer .board-wrap {
-  padding-bottom: 4rem;
 }
 
 .query-builder__tabs {
@@ -507,22 +454,9 @@ body {
 }
 
 .pool {
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
   padding: 0.75rem 1rem;
-}
-
-.pool__drawer-toggle {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  padding: 0;
-  border: 1px solid var(--color-border);
-  border-radius: 3px;
-  background: var(--color-bg);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  font-size: 0.9rem;
 }
 
 .pool__header {
@@ -556,30 +490,29 @@ body {
 }
 
 .pool-filters {
-  margin-bottom: 0.75rem;
+  position: relative;
+  display: inline-flex;
+}
+
+.pool-filters__main-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.3rem 0.6rem;
   border: 1px solid var(--color-border);
   border-radius: 3px;
   background: var(--color-bg);
-  overflow: hidden;
-}
-
-.pool-filters__disclosure {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  width: 100%;
-  padding: 0.5rem 0.6rem;
-  border: none;
-  background: transparent;
-  font: inherit;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--color-text);
+  color: var(--color-text-muted);
   cursor: pointer;
 }
 
-.pool-filters__disclosure:hover {
+.pool-filters__main-toggle:hover,
+.pool-filters__main-toggle[aria-expanded="true"] {
   color: var(--color-primary);
+  border-color: var(--color-primary);
 }
 
 .pool-filters__badge {
@@ -596,16 +529,23 @@ body {
   font-weight: 700;
 }
 
-.pool-filters__disclosure-icon {
-  margin-left: auto;
-  color: var(--color-text-muted);
-}
-
-.pool-filters__body {
+.pool-filters__popover {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  padding: 0 0.6rem 0.6rem;
+  width: 34rem;
+  max-width: calc(100vw - 2rem);
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 0.75rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  z-index: 30;
 }
 
 .pool-filters__row {
@@ -1104,26 +1044,12 @@ body {
 @media (max-width: 900px) {
   .layout {
     grid-template-columns: 1fr;
-    height: auto;
-    overflow: visible;
-  }
-
-  .query-builder,
-  .board-wrap {
-    height: auto;
-    overflow: visible;
+    min-height: 0;
   }
 
   .query-builder {
     border-right: none;
     border-bottom: 1px solid var(--color-border);
-  }
-
-  .pool-rail {
-    height: auto;
-    overflow-y: visible;
-    border-left: none;
-    border-top: 1px solid var(--color-border);
   }
 
   .topbar {

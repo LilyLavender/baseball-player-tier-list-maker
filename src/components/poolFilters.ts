@@ -124,15 +124,16 @@ export function renderPoolFilters(teams: Team[], countries: string[] = []): stri
       <button
         type="button"
         id="pf-toggle"
-        class="pool-filters__disclosure"
+        class="pool-filters__main-toggle"
+        aria-haspopup="true"
         aria-expanded="${filtersOpen}"
-        aria-controls="pool-filters-body"
+        aria-controls="pool-filters-popover"
       >
         <span>Filter pool</span>
         <span id="pf-badge" class="pool-filters__badge" hidden>0</span>
-        <span class="pool-filters__disclosure-icon" aria-hidden="true">${filtersOpen ? "▾" : "▸"}</span>
+        <span aria-hidden="true">▾</span>
       </button>
-      <div id="pool-filters-body" class="pool-filters__body"${filtersOpen ? "" : " hidden"}>
+      <div id="pool-filters-popover" class="pool-filters__popover"${filtersOpen ? "" : " hidden"}>
         <div class="pool-filters__row">
           <div class="pool-filters__team-picker">
             <div class="pool-filters__chips">${divisionChips}</div>
@@ -258,15 +259,35 @@ export function bindPoolFilters(
   const qualifiedCheckbox = document.querySelector<HTMLInputElement>("#pf-qualified")!;
   const applyButton = document.querySelector<HTMLButtonElement>("#pf-apply")!;
   const clearButton = document.querySelector<HTMLButtonElement>("#pf-clear")!;
-  const disclosureToggle = document.querySelector<HTMLButtonElement>("#pf-toggle")!;
-  const disclosureBody = document.querySelector<HTMLDivElement>("#pool-filters-body")!;
-  const disclosureIcon = disclosureToggle.querySelector<HTMLSpanElement>(".pool-filters__disclosure-icon")!;
+  const container = document.querySelector<HTMLDivElement>(".pool-filters")!;
+  const toggle = document.querySelector<HTMLButtonElement>("#pf-toggle")!;
+  const popover = document.querySelector<HTMLDivElement>("#pool-filters-popover")!;
 
-  disclosureToggle.addEventListener("click", () => {
-    filtersOpen = !filtersOpen;
-    disclosureBody.hidden = !filtersOpen;
-    disclosureToggle.setAttribute("aria-expanded", String(filtersOpen));
-    disclosureIcon.textContent = filtersOpen ? "▾" : "▸";
+  const closePopover = () => {
+    filtersOpen = false;
+    popover.hidden = true;
+    toggle.setAttribute("aria-expanded", "false");
+  };
+  const openPopover = () => {
+    filtersOpen = true;
+    popover.hidden = false;
+    toggle.setAttribute("aria-expanded", "true");
+  };
+
+  toggle.addEventListener("click", () => {
+    if (popover.hidden) openPopover();
+    else closePopover();
+  });
+
+  container.addEventListener("focusout", (event) => {
+    if (!container.contains(event.relatedTarget as Node)) closePopover();
+  });
+
+  popover.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closePopover();
+      toggle.focus();
+    }
   });
 
   document.querySelectorAll<HTMLButtonElement>(".pool-filters__chip").forEach((chip) => {
