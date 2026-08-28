@@ -3,6 +3,7 @@ import type { PoolPlayer } from "../types/mlb";
 import type { TierDefinition } from "../data/tiers";
 import type { AutoTierStrategy } from "../tiering/autoTier";
 import { bindConditionalField } from "../utils/conditionalField";
+import { icon } from "../utils/icon";
 
 export interface TierBoardCallbacks {
   onRename: (index: number, label: string) => void;
@@ -39,9 +40,9 @@ export function renderTierBoard(tiers: TierDefinition[], tierPlayers: PoolPlayer
               aria-label="Name for tier ${index + 1}"
             />
             <div class="tier-row__controls">
-              <button type="button" class="tier-row__ctrl" data-action="up" data-tier-index="${index}" title="Move tier up" aria-label="Move tier ${tier.label} up"><span aria-hidden="true">▲</span></button>
-              <button type="button" class="tier-row__ctrl" data-action="down" data-tier-index="${index}" title="Move tier down" aria-label="Move tier ${tier.label} down"><span aria-hidden="true">▼</span></button>
-              <button type="button" class="tier-row__ctrl tier-row__ctrl--delete" data-action="delete" data-tier-index="${index}" title="Delete tier" aria-label="Delete tier ${tier.label}"><span aria-hidden="true">✕</span></button>
+              <button type="button" class="tier-row__ctrl" data-action="up" data-tier-index="${index}" title="Move tier up" aria-label="Move tier ${tier.label} up">${icon("arrow_upward")}</button>
+              <button type="button" class="tier-row__ctrl" data-action="down" data-tier-index="${index}" title="Move tier down" aria-label="Move tier ${tier.label} down">${icon("arrow_downward")}</button>
+              <button type="button" class="tier-row__ctrl tier-row__ctrl--delete" data-action="delete" data-tier-index="${index}" title="Delete tier" aria-label="Delete tier ${tier.label}">${icon("close")}</button>
             </div>
           </div>
           <div id="tier-cards-${index}" class="tier-row__cards sortable-zone" role="list" aria-label="Players in tier ${tier.label}">${cards}</div>
@@ -54,7 +55,7 @@ export function renderTierBoard(tiers: TierDefinition[], tierPlayers: PoolPlayer
     <div class="board">
       ${rows}
       <div class="board__actions">
-        <button type="button" id="add-tier" class="board__add-tier">+ Add tier</button>
+        <button type="button" id="add-tier" class="board__add-tier">${icon("add")} Add tier</button>
         <div class="board__autotier">
           <button
             type="button"
@@ -63,7 +64,7 @@ export function renderTierBoard(tiers: TierDefinition[], tierPlayers: PoolPlayer
             aria-haspopup="true"
             aria-expanded="false"
             aria-controls="autotier-popover"
-          >Auto-tier ▾</button>
+          >Auto-tier ${icon("expand_more")}</button>
           <div id="autotier-popover" class="board__autotier-popover" hidden>
             <p class="query-builder__placeholder">
               Builds tiers from stat values already in the pool. Run a stat leaders query first.
@@ -100,7 +101,7 @@ export function renderTierBoard(tiers: TierDefinition[], tierPlayers: PoolPlayer
             <button type="button" id="qb-autotier-apply" class="board__autotier-apply">Generate Tiers</button>
           </div>
         </div>
-        <button type="button" id="reset-tiers" class="board__reset-tiers">Reset tiers</button>
+        <button type="button" id="reset-tiers" class="board__reset-tiers">${icon("restart_alt")} Reset tiers</button>
       </div>
     </div>
   `;

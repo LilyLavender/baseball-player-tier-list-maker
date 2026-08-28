@@ -23,9 +23,12 @@
   --color-border: #dddddd;
   --color-text-muted: #666666;
 
-  --font-display: "Arial Narrow", "Helvetica Neue Condensed", sans-serif;
-  --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "Consolas", "SF Mono", ui-monospace, monospace;
+  --font-display: "Oswald", "Arial Narrow", "Helvetica Neue Condensed", sans-serif;
+  --font-body: "Nunito Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "Consolas", "SF Mono", ui-monospace, monospace;
+
+  --spinner-red: var(--color-stitch-red);
+  --spinner-blue: #2f6fb0;
 }
 
 /* Dark: near-black with a green tint, brightened green primary + orange accent. */
@@ -48,4 +51,7 @@
   --divider-color: var(--color-accent);
   --color-border: #33402f;
   --color-text-muted: #a9b3a3;
+
+  --spinner-red: var(--color-stitch-red);
+  --spinner-blue: #5b9bdb;
 }

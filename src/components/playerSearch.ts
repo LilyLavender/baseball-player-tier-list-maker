@@ -1,9 +1,11 @@
 import { searchPlayers } from "../api/mlbApi";
 import type { PoolPlayer } from "../types/mlb";
+import { icon } from "../utils/icon";
 
 export function renderPlayerSearch(): string {
   return `
     <div class="player-search" id="player-search">
+      ${icon("search", "player-search__icon")}
       <input
         id="player-search-input"
         type="text"

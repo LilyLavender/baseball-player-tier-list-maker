@@ -1,6 +1,7 @@
 import type { PoolPlayer, PositionType, Team } from "../types/mlb";
 import { statOptions } from "../data/statCategories";
 import { flagForCountry } from "../data/countryFlags";
+import { icon } from "../utils/icon";
 
 export type PositionFilter = "all" | PositionType;
 
@@ -129,9 +130,9 @@ export function renderPoolFilters(teams: Team[], countries: string[] = []): stri
         aria-expanded="${filtersOpen}"
         aria-controls="pool-filters-popover"
       >
+        ${icon("filter_alt")}
         <span>Filter pool</span>
         <span id="pf-badge" class="pool-filters__badge" hidden>0</span>
-        <span aria-hidden="true">▾</span>
       </button>
       <div id="pool-filters-popover" class="pool-filters__popover"${filtersOpen ? "" : " hidden"}>
         <div class="pool-filters__row">

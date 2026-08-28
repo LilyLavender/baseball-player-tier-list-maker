@@ -52,6 +52,7 @@ import { exportTierListAsPng } from "./export/exportImage";
 import { generateAutoTiers } from "./tiering/autoTier";
 import type { AutoTierStrategy } from "./tiering/autoTier";
 import type { PoolPlayer, Team } from "./types/mlb";
+import { renderSpinner } from "./components/spinner";
 
 applyTheme(loadThemePref());
 applyStatBadgePref(loadStatBadgePref());
@@ -242,7 +243,7 @@ function bindPoolFilterControls(): void {
 
       const statusEl = document.querySelector<HTMLSpanElement>("#pf-status");
       const applyButton = document.querySelector<HTMLButtonElement>("#pf-apply");
-      if (statusEl) statusEl.textContent = "Applying…";
+      if (statusEl) statusEl.innerHTML = `${renderSpinner("Applying filters", "sm")} Applying…`;
       if (applyButton) applyButton.disabled = true;
 
       void Promise.all([statValuesPromise, birthCountriesPromise])
@@ -354,7 +355,7 @@ function renderShell(
       <span class="topbar__wordmark">MLB Tier List Maker</span>
       <div class="topbar__controls">
         <button id="theme-toggle" type="button" class="topbar__theme-toggle" title="Toggle light/dark theme">
-          <span class="topbar__theme-toggle-icon" aria-hidden="true">🌙</span>
+          <span class="topbar__theme-toggle-icon material-symbols-outlined" aria-hidden="true">dark_mode</span>
         </button>
         <label class="topbar__checkbox">
           <input id="stat-badge-toggle" type="checkbox" />
@@ -371,7 +372,7 @@ function renderShell(
         ${queryBuilderContent}
         <div id="remove-zone" class="remove-zone">
           <div class="remove-zone__content">
-            <span class="remove-zone__icon" aria-hidden="true">🗑</span>
+            <span class="remove-zone__icon material-symbols-outlined" aria-hidden="true">delete</span>
             <span>Remove player</span>
           </div>
           <div id="remove-zone-drop" class="remove-zone__drop"></div>
@@ -436,7 +437,7 @@ function renderShell(
 
     button.disabled = true;
     const originalLabel = button.textContent;
-    button.textContent = "Exporting…";
+    button.innerHTML = `${renderSpinner("Exporting", "sm")} Exporting…`;
 
     exportTierListAsPng(title, currentTiers, tierPlayers)
       .catch((error) => {
@@ -452,7 +453,7 @@ function renderShell(
   const themeToggle = document.querySelector<HTMLButtonElement>("#theme-toggle")!;
   const themeToggleIcon = themeToggle.querySelector<HTMLSpanElement>(".topbar__theme-toggle-icon")!;
   const syncThemeToggle = (theme: ThemeName) => {
-    themeToggleIcon.textContent = theme === "dark" ? "☀️" : "🌙";
+    themeToggleIcon.textContent = theme === "dark" ? "light_mode" : "dark_mode";
     themeToggle.setAttribute("aria-label", theme === "dark" ? "Switch to light theme" : "Switch to dark theme");
   };
   syncThemeToggle(loadThemePref());
@@ -493,7 +494,7 @@ function setPoolContent(html: string): void {
 async function loadTeamPool(teamId: number | "all", season: number): Promise<void> {
   currentQuery = { kind: "team", teamId, season };
   setPoolContent(
-    `<p class="pool__placeholder">${teamId === "all" ? "Loading all rosters…" : "Loading roster…"}</p>`,
+    `<p class="pool__placeholder pool__placeholder--loading">${renderSpinner("Loading", "lg")}<span>${teamId === "all" ? "Loading all rosters…" : "Loading roster…"}</span></p>`,
   );
 
   let players: PoolPlayer[] = [];
@@ -525,7 +526,7 @@ async function loadStatPool(params: StatQueryParams): Promise<void> {
     limit: params.limit,
   };
   setPoolContent(
-    `<p class="pool__placeholder">${params.scope === "career" ? "Loading career leaders…" : "Loading leaders…"}</p>`,
+    `<p class="pool__placeholder pool__placeholder--loading">${renderSpinner("Loading", "lg")}<span>${params.scope === "career" ? "Loading career leaders…" : "Loading leaders…"}</span></p>`,
   );
 
   let players: PoolPlayer[] = [];
@@ -626,7 +627,7 @@ function renderInitError(): void {
 
 async function init(): Promise<void> {
   renderShell(
-    `<h2 class="query-builder__heading">Build your pool</h2><p class="query-builder__placeholder">Loading teams…</p>`,
+    `<h2 class="query-builder__heading">Build your pool</h2><p class="query-builder__placeholder pool__placeholder--loading">${renderSpinner("Loading", "sm")}<span>Loading teams…</span></p>`,
     `<p class="pool__placeholder">Players will appear here once a query runs.</p>`,
   );
 
