@@ -42,6 +42,7 @@ export function renderQueryBuilder(
   const defaultTeamValue = selectedTeamQuery ? String(selectedTeamQuery.teamId) : ALL_TEAMS_VALUE;
 
   return `
+    <h2 class="query-builder__heading">Add Players</h2>
     <div class="query-builder__tabs" role="tablist" aria-label="Pool source">
       <button
         type="button"
@@ -50,7 +51,7 @@ export function renderQueryBuilder(
         role="tab"
         aria-selected="true"
         aria-controls="qb-panel-team"
-      >${icon("groups")} Team &amp; Season</button>
+      >${icon("groups")} By Team</button>
       <button
         type="button"
         id="qb-tab-stat"
@@ -59,7 +60,7 @@ export function renderQueryBuilder(
         aria-selected="false"
         aria-controls="qb-panel-stat"
         tabindex="-1"
-      >${icon("leaderboard")} Stat Leaders</button>
+      >${icon("leaderboard")} By Leaders</button>
     </div>
 
     <div id="qb-panel-team" class="query-builder__panel" role="tabpanel" aria-labelledby="qb-tab-team">
@@ -76,7 +77,7 @@ export function renderQueryBuilder(
         Season
         <input id="qb-season" type="number" value="${teamSeason}" min="1901" max="${CURRENT_YEAR}" />
       </label>
-      <button id="qb-apply" type="button">${icon("search")} Apply</button>
+      <button id="qb-apply" type="button">${icon("group_add")} Add to Pool</button>
     </div>
 
     <div id="qb-panel-stat" class="query-builder__panel" role="tabpanel" aria-labelledby="qb-tab-stat" hidden>
@@ -117,7 +118,7 @@ export function renderQueryBuilder(
         Min <span id="qb-stat-qualifier-label">Plate Appearances</span>
         <input id="qb-stat-min-qualifier" type="number" placeholder="No minimum" step="any" />
       </label>
-      <button id="qb-stat-apply" type="button">${icon("search")} Apply</button>
+      <button id="qb-stat-apply" type="button">${icon("group_add")} Add to Pool</button>
     </div>
   `;
 }

@@ -4,6 +4,27 @@ import type { TierDefinition } from "../data/tiers";
 import type { AutoTierStrategy } from "../tiering/autoTier";
 import { bindConditionalField } from "../utils/conditionalField";
 import { icon } from "../utils/icon";
+import { escapeHtml } from "../utils/escapeHtml";
+
+const TIER_NAME_MAX_FONT_REM = 1.7;
+const TIER_NAME_MIN_FONT_REM = 0.85;
+const TIER_NAME_STEP_REM = 0.1;
+
+/** Shrinks `el`'s font size to fit on one line down to a floor, then lets it wrap and grow tall. */
+function fitTierNameText(el: HTMLElement): void {
+  el.style.whiteSpace = "nowrap";
+  el.style.overflow = "hidden";
+  let size = TIER_NAME_MAX_FONT_REM;
+  el.style.fontSize = `${size}rem`;
+  while (size > TIER_NAME_MIN_FONT_REM && el.scrollWidth > el.clientWidth + 1) {
+    size = Math.max(TIER_NAME_MIN_FONT_REM, Math.round((size - TIER_NAME_STEP_REM) * 10) / 10);
+    el.style.fontSize = `${size}rem`;
+  }
+  if (el.scrollWidth > el.clientWidth + 1) {
+    el.style.whiteSpace = "normal";
+    el.style.overflow = "visible";
+  }
+}
 
 export interface TierBoardCallbacks {
   onRename: (index: number, label: string) => void;
@@ -20,32 +41,50 @@ export function renderTierBoard(tiers: TierDefinition[], tierPlayers: PoolPlayer
   const rows = tiers
     .map((tier, index) => {
       const cards = (tierPlayers[index] ?? []).map(renderPlayerCard).join("");
+      const safeLabel = escapeHtml(tier.label);
       return `
         <div class="tier-row" style="--tier-color: ${tier.color}">
           <div class="tier-row__label">
-            <input
-              type="color"
-              class="tier-row__color"
-              data-tier-index="${index}"
-              value="${tier.color}"
-              title="Tier color"
-              aria-label="Color for tier ${tier.label}"
-            />
-            <input
-              type="text"
+            <div
               class="tier-row__name"
               data-tier-index="${index}"
-              value="${tier.label}"
-              maxlength="12"
+              contenteditable="true"
+              spellcheck="false"
+              role="textbox"
               aria-label="Name for tier ${index + 1}"
-            />
-            <div class="tier-row__controls">
-              <button type="button" class="tier-row__ctrl" data-action="up" data-tier-index="${index}" title="Move tier up" aria-label="Move tier ${tier.label} up">${icon("arrow_upward")}</button>
-              <button type="button" class="tier-row__ctrl" data-action="down" data-tier-index="${index}" title="Move tier down" aria-label="Move tier ${tier.label} down">${icon("arrow_downward")}</button>
-              <button type="button" class="tier-row__ctrl tier-row__ctrl--delete" data-action="delete" data-tier-index="${index}" title="Delete tier" aria-label="Delete tier ${tier.label}">${icon("close")}</button>
+            >${safeLabel}</div>
+            <div class="tier-row__hover-controls">
+              <button
+                type="button"
+                class="tier-row__icon-btn"
+                data-action="settings"
+                data-tier-index="${index}"
+                title="Tier settings"
+                aria-label="Settings for tier ${safeLabel}"
+                aria-haspopup="true"
+                aria-expanded="false"
+                aria-controls="tier-settings-${index}"
+              >${icon("settings")}</button>
+              <button type="button" class="tier-row__icon-btn tier-row__move-btn" data-action="up" data-tier-index="${index}" title="Move tier up" aria-label="Move tier ${safeLabel} up">${icon("arrow_upward")}</button>
+              <button type="button" class="tier-row__icon-btn tier-row__move-btn" data-action="down" data-tier-index="${index}" title="Move tier down" aria-label="Move tier ${safeLabel} down">${icon("arrow_downward")}</button>
+            </div>
+            <div id="tier-settings-${index}" class="tier-row__settings" data-tier-index="${index}" hidden>
+              <label class="tier-row__settings-field">
+                <span>Name</span>
+                <input type="text" class="tier-row__settings-name" data-tier-index="${index}" value="${safeLabel}" />
+              </label>
+              <label class="tier-row__settings-field">
+                <span>Color</span>
+                <input type="color" class="tier-row__settings-color" data-tier-index="${index}" value="${tier.color}" />
+              </label>
+              <div class="tier-row__settings-row">
+                <button type="button" class="tier-row__settings-btn tier-row__move-btn" data-action="up" data-tier-index="${index}">${icon("arrow_upward")} Move up</button>
+                <button type="button" class="tier-row__settings-btn tier-row__move-btn" data-action="down" data-tier-index="${index}">${icon("arrow_downward")} Move down</button>
+              </div>
+              <button type="button" class="tier-row__settings-delete" data-action="delete" data-tier-index="${index}">${icon("delete")} Delete tier</button>
             </div>
           </div>
-          <div id="tier-cards-${index}" class="tier-row__cards sortable-zone" role="list" aria-label="Players in tier ${tier.label}">${cards}</div>
+          <div id="tier-cards-${index}" class="tier-row__cards sortable-zone" role="list" aria-label="Players in tier ${safeLabel}">${cards}</div>
         </div>
       `;
     })
@@ -98,7 +137,7 @@ export function renderTierBoard(tiers: TierDefinition[], tierPlayers: PoolPlayer
                 <option value="custom">Use current tier board's labels</option>
               </select>
             </label>
-            <button type="button" id="qb-autotier-apply" class="board__autotier-apply">${icon("auto_awesome")} Generate Tiers</button>
+            <button type="button" id="qb-autotier-apply" class="board__autotier-apply">${icon("stacked_bar_chart")} Generate Tiers</button>
           </div>
         </div>
         <button type="button" id="reset-tiers" class="board__reset-tiers">${icon("restart_alt")} Reset tiers</button>
@@ -111,33 +150,173 @@ export function tierDropZoneIds(tierCount: number): string[] {
   return Array.from({ length: tierCount }, (_, index) => `tier-cards-${index}`);
 }
 
-export function bindTierBoard(callbacks: TierBoardCallbacks): void {
-  document.querySelectorAll<HTMLInputElement>(".tier-row__name").forEach((input) => {
-    input.addEventListener("change", () => {
-      callbacks.onRename(Number(input.dataset.tierIndex), input.value.trim() || "Tier");
+function syncSettingsName(index: number, text: string): void {
+  const settingsInput = document.querySelector<HTMLInputElement>(
+    `.tier-row__settings-name[data-tier-index="${index}"]`,
+  );
+  if (settingsInput) settingsInput.value = text;
+}
+
+function bindTierNameEditing(callbacks: TierBoardCallbacks): void {
+  document.querySelectorAll<HTMLElement>(".tier-row__name").forEach((nameEl) => {
+    fitTierNameText(nameEl);
+
+    const commit = () => {
+      const index = Number(nameEl.dataset.tierIndex);
+      const text = (nameEl.textContent ?? "").trim() || "Tier";
+      nameEl.textContent = text;
+      fitTierNameText(nameEl);
+      callbacks.onRename(index, text);
+      syncSettingsName(index, text);
+    };
+
+    nameEl.addEventListener("input", () => fitTierNameText(nameEl));
+    nameEl.addEventListener("blur", commit);
+    nameEl.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === "Escape") {
+        event.preventDefault();
+        nameEl.blur();
+      }
+    });
+    nameEl.addEventListener("paste", (event) => {
+      event.preventDefault();
+      const text = event.clipboardData?.getData("text/plain") ?? "";
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) return;
+      const range = selection.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(document.createTextNode(text));
+      range.collapse(false);
+      fitTierNameText(nameEl);
+    });
+  });
+}
+
+function bindTierMoveAndDelete(callbacks: TierBoardCallbacks): void {
+  document.querySelectorAll<HTMLButtonElement>(".tier-row__move-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      const index = Number(button.dataset.tierIndex);
+      if (button.dataset.action === "up") callbacks.onMoveUp(index);
+      else callbacks.onMoveDown(index);
     });
   });
 
-  document.querySelectorAll<HTMLInputElement>(".tier-row__color").forEach((input) => {
+  document.querySelectorAll<HTMLButtonElement>(".tier-row__settings-delete").forEach((button) => {
+    button.addEventListener("click", () => callbacks.onDelete(Number(button.dataset.tierIndex)));
+  });
+}
+
+function bindTierSettingsFields(callbacks: TierBoardCallbacks): void {
+  document.querySelectorAll<HTMLInputElement>(".tier-row__settings-color").forEach((input) => {
     input.addEventListener("input", () => {
       callbacks.onRecolor(Number(input.dataset.tierIndex), input.value);
     });
   });
 
-  document.querySelectorAll<HTMLButtonElement>(".tier-row__ctrl").forEach((button) => {
-    button.addEventListener("click", () => {
-      const index = Number(button.dataset.tierIndex);
-      const action = button.dataset.action;
-      if (action === "up") callbacks.onMoveUp(index);
-      else if (action === "down") callbacks.onMoveDown(index);
-      else if (action === "delete") callbacks.onDelete(index);
+  document.querySelectorAll<HTMLInputElement>(".tier-row__settings-name").forEach((input) => {
+    input.addEventListener("input", () => {
+      const index = Number(input.dataset.tierIndex);
+      const nameEl = document.querySelector<HTMLElement>(`.tier-row__name[data-tier-index="${index}"]`);
+      if (!nameEl) return;
+      nameEl.textContent = input.value || "Tier";
+      fitTierNameText(nameEl);
+    });
+    input.addEventListener("change", () => {
+      const index = Number(input.dataset.tierIndex);
+      const text = input.value.trim() || "Tier";
+      input.value = text;
+      callbacks.onRename(index, text);
     });
   });
+}
+
+function closeTierSettingsPopover(popover: HTMLElement): void {
+  popover.hidden = true;
+  const toggle = document.querySelector<HTMLButtonElement>(
+    `.tier-row__icon-btn[data-action="settings"][data-tier-index="${popover.dataset.tierIndex}"]`,
+  );
+  toggle?.setAttribute("aria-expanded", "false");
+}
+
+let tierSettingsOutsideClickBound = false;
+
+/**
+ * Registered once for the app's lifetime (guarded by the flag) rather than once per board
+ * re-render, so it doesn't accumulate a fresh listener every time the tier board rerenders.
+ */
+function bindTierSettingsOutsideClick(): void {
+  if (tierSettingsOutsideClickBound) return;
+  tierSettingsOutsideClickBound = true;
+  document.addEventListener("click", (event) => {
+    const target = event.target as Node;
+    document.querySelectorAll<HTMLElement>(".tier-row__settings:not([hidden])").forEach((popover) => {
+      const label = popover.closest(".tier-row__label");
+      if (label && !label.contains(target)) closeTierSettingsPopover(popover);
+    });
+  });
+}
+
+function bindTierSettingsPopovers(): void {
+  const toggles = Array.from(
+    document.querySelectorAll<HTMLButtonElement>('.tier-row__icon-btn[data-action="settings"]'),
+  );
+
+  function closeAll(): void {
+    document.querySelectorAll<HTMLElement>(".tier-row__settings").forEach(closeTierSettingsPopover);
+  }
+
+  toggles.forEach((toggle) => {
+    const index = toggle.dataset.tierIndex;
+    const popover = document.querySelector<HTMLElement>(`.tier-row__settings[data-tier-index="${index}"]`);
+    if (!popover) return;
+
+    toggle.addEventListener("click", () => {
+      const willOpen = popover.hidden;
+      closeAll();
+      popover.hidden = !willOpen;
+      toggle.setAttribute("aria-expanded", String(willOpen));
+      if (willOpen) popover.querySelector<HTMLInputElement>(".tier-row__settings-name")?.focus();
+    });
+
+    popover.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        closeTierSettingsPopover(popover);
+        toggle.focus();
+      }
+    });
+  });
+
+  bindTierSettingsOutsideClick();
+}
+
+export function bindTierBoard(callbacks: TierBoardCallbacks): void {
+  bindTierNameEditing(callbacks);
+  bindTierMoveAndDelete(callbacks);
+  bindTierSettingsFields(callbacks);
+  bindTierSettingsPopovers();
 
   document.getElementById("add-tier")?.addEventListener("click", () => callbacks.onAddTier());
   document.getElementById("reset-tiers")?.addEventListener("click", () => callbacks.onResetTiers());
 
   bindAutoTierPopover(callbacks);
+}
+
+let autoTierOutsideClickBound = false;
+
+/** Registered once for the app's lifetime; queries the live popover so it survives re-renders. */
+function bindAutoTierOutsideClick(): void {
+  if (autoTierOutsideClickBound) return;
+  autoTierOutsideClickBound = true;
+  document.addEventListener("click", (event) => {
+    const popover = document.querySelector<HTMLElement>("#autotier-popover");
+    const container = document.querySelector<HTMLElement>(".board__autotier");
+    const toggle = document.querySelector<HTMLButtonElement>("#autotier-toggle");
+    if (!popover || !container || !toggle || popover.hidden) return;
+    if (!container.contains(event.target as Node)) {
+      popover.hidden = true;
+      toggle.setAttribute("aria-expanded", "false");
+    }
+  });
 }
 
 function bindAutoTierPopover(callbacks: TierBoardCallbacks): void {
@@ -160,16 +339,14 @@ function bindAutoTierPopover(callbacks: TierBoardCallbacks): void {
     else closePopover();
   });
 
-  container.addEventListener("focusout", (event) => {
-    if (!container.contains(event.relatedTarget as Node)) closePopover();
-  });
-
   popover.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       closePopover();
       toggle.focus();
     }
   });
+
+  bindAutoTierOutsideClick();
 
   const strategySelect = document.querySelector<HTMLSelectElement>("#qb-autotier-strategy")!;
   const intervalField = document.querySelector<HTMLLabelElement>("#qb-autotier-interval-field")!;

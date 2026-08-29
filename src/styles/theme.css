@@ -1,57 +1,68 @@
 /*
-  Theme tokens. Two themes: Light and Dark, both a green-primary / orange-accent duo (the site's
-  "field green + infield dirt" identity), switched via a toggle and persisted to localStorage.
-  Light is the default, defined on bare :root; Dark overrides via [data-theme="dark"].
+  Theme tokens. Two themes: Light and Dark, both built from the brand navy (#062f68) and pink/red
+  (#e50f4a) duo, switched via a toggle and persisted to localStorage. Light is the default, defined
+  on bare :root; Dark overrides via [data-theme="dark"].
+
+  --color-primary and --color-accent stay byte-identical between themes (that's the whole point:
+  one consistent brand palette, not a per-theme reinterpretation of it). The one exception is
+  --color-primary-text: navy read as *text/border* directly on a near-black dark-mode background is
+  functionally invisible, so dark mode swaps in a lighter, same-hue navy for that specific role only
+  (headings, hover states, the spinner's blue chaser). Everything that puts --color-primary on a
+  light surface (buttons, chips, the topbar bar itself) keeps the literal brand navy in both themes.
 */
 :root {
-  --color-field-green: #1b4332;
+  --color-field-green: #062f68;
   --color-chalk-white: #f5f6f2;
-  --color-ink-navy: #14213d;
-  --color-infield-dirt: #c08552;
-  --color-stitch-red: #b03a2e;
-  --color-scoreboard-amber: #e8a33d;
+  --color-ink-navy: #062f68;
+  --color-infield-dirt: #e50f4a;
+  --color-stitch-red: #e50f4a;
+  --color-scoreboard-amber: #ff6f91;
 
   --color-bg: var(--color-chalk-white);
   --color-text: var(--color-ink-navy);
   --color-surface: #ffffff;
   --color-primary: var(--color-field-green);
+  --color-primary-text: var(--color-primary);
   --color-accent: var(--color-infield-dirt);
   --color-danger: var(--color-stitch-red);
   --color-highlight: var(--color-scoreboard-amber);
   --divider-style: dashed;
   --divider-color: var(--color-accent);
-  --color-border: #dddddd;
-  --color-text-muted: #666666;
+  --color-border: #d9dee6;
+  --color-text-muted: #5b6b85;
 
   --font-display: "Oswald", "Arial Narrow", "Helvetica Neue Condensed", sans-serif;
   --font-body: "Nunito Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", "Consolas", "SF Mono", ui-monospace, monospace;
 
-  --spinner-red: var(--color-stitch-red);
-  --spinner-blue: #2f6fb0;
+  --spinner-red: var(--color-danger);
+  --spinner-blue: var(--color-primary-text);
+  --spinner-track: var(--color-border);
 }
 
-/* Dark: near-black with a green tint, brightened green primary + orange accent. */
+/* Dark: near-black, same navy + pink brand colors as light (see file header for the one exception). */
 :root[data-theme="dark"] {
-  --color-field-green: #3f8a63;
+  --color-field-green: #062f68;
   --color-chalk-white: #f5f6f2;
-  --color-ink-navy: #14213d;
-  --color-infield-dirt: #e8a33d;
-  --color-stitch-red: #e05a4e;
-  --color-scoreboard-amber: #e8a33d;
+  --color-ink-navy: #062f68;
+  --color-infield-dirt: #e50f4a;
+  --color-stitch-red: #e50f4a;
+  --color-scoreboard-amber: #ff6f91;
 
-  --color-bg: #101510;
+  --color-bg: #0a0e14;
   --color-text: var(--color-chalk-white);
-  --color-surface: #1a221b;
+  --color-surface: #131b28;
   --color-primary: var(--color-field-green);
-  --color-accent: #e8620c;
+  --color-primary-text: #4d7fc9;
+  --color-accent: var(--color-infield-dirt);
   --color-danger: var(--color-stitch-red);
   --color-highlight: var(--color-scoreboard-amber);
   --divider-style: dashed;
   --divider-color: var(--color-accent);
-  --color-border: #33402f;
-  --color-text-muted: #a9b3a3;
+  --color-border: #263449;
+  --color-text-muted: #93a3bd;
 
-  --spinner-red: var(--color-stitch-red);
-  --spinner-blue: #5b9bdb;
+  --spinner-red: var(--color-danger);
+  --spinner-blue: var(--color-primary-text);
+  --spinner-track: #3a4a63;
 }

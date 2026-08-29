@@ -245,6 +245,25 @@ export function syncPoolFilterUI(state: PoolFilterState): void {
   }
 }
 
+let poolFiltersOutsideClickBound = false;
+
+/** Registered once for the app's lifetime; queries the live popover so it survives re-renders. */
+function bindPoolFiltersOutsideClick(): void {
+  if (poolFiltersOutsideClickBound) return;
+  poolFiltersOutsideClickBound = true;
+  document.addEventListener("click", (event) => {
+    const popover = document.querySelector<HTMLElement>("#pool-filters-popover");
+    const container = document.querySelector<HTMLElement>(".pool-filters");
+    const toggle = document.querySelector<HTMLButtonElement>("#pf-toggle");
+    if (!popover || !container || !toggle || popover.hidden) return;
+    if (!container.contains(event.target as Node)) {
+      filtersOpen = false;
+      popover.hidden = true;
+      toggle.setAttribute("aria-expanded", "false");
+    }
+  });
+}
+
 export function bindPoolFilters(
   teams: Team[],
   onApply: (state: PoolFilterState) => void,
@@ -260,7 +279,6 @@ export function bindPoolFilters(
   const qualifiedCheckbox = document.querySelector<HTMLInputElement>("#pf-qualified")!;
   const applyButton = document.querySelector<HTMLButtonElement>("#pf-apply")!;
   const clearButton = document.querySelector<HTMLButtonElement>("#pf-clear")!;
-  const container = document.querySelector<HTMLDivElement>(".pool-filters")!;
   const toggle = document.querySelector<HTMLButtonElement>("#pf-toggle")!;
   const popover = document.querySelector<HTMLDivElement>("#pool-filters-popover")!;
 
@@ -280,9 +298,7 @@ export function bindPoolFilters(
     else closePopover();
   });
 
-  container.addEventListener("focusout", (event) => {
-    if (!container.contains(event.relatedTarget as Node)) closePopover();
-  });
+  bindPoolFiltersOutsideClick();
 
   popover.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {

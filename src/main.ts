@@ -353,7 +353,13 @@ function renderShell(
 ): void {
   app.innerHTML = `
     <header class="topbar">
-      <span class="topbar__wordmark">Baseball Tier List Maker</span>
+      <div class="topbar__brand">
+        <svg class="topbar__logo" viewBox="0 0 64 64" width="26" height="26" aria-hidden="true">
+          <polygon points="32,4 60,32 32,60 4,32" fill="#f5f6f2"/>
+          <polyline points="18,36 32,22 46,36" stroke="#e50f4a" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="topbar__wordmark">Baseball Tier List Maker</span>
+      </div>
       <div class="topbar__controls">
         <button id="theme-toggle" type="button" class="topbar__theme-toggle" title="Toggle light/dark theme">
           <span class="topbar__theme-toggle-icon material-symbols-outlined" aria-hidden="true">dark_mode</span>
@@ -437,7 +443,7 @@ function renderShell(
     const tierPlayers = collectTierPlayerIds(currentTiers.length).map(playersFromIds);
 
     button.disabled = true;
-    const originalLabel = button.textContent;
+    const originalLabel = button.innerHTML;
     button.innerHTML = `${renderSpinner("Exporting", "sm")} Exporting…`;
 
     exportTierListAsPng(title, currentTiers, tierPlayers)
@@ -447,7 +453,7 @@ function renderShell(
       })
       .finally(() => {
         button.disabled = false;
-        button.textContent = originalLabel;
+        button.innerHTML = originalLabel;
       });
   });
 
@@ -458,11 +464,21 @@ function renderShell(
     themeToggle.setAttribute("aria-label", theme === "dark" ? "Switch to light theme" : "Switch to dark theme");
   };
   syncThemeToggle(loadThemePref());
+  let themeSpinning = false;
   themeToggle.addEventListener("click", () => {
-    const theme: ThemeName = loadThemePref() === "dark" ? "light" : "dark";
-    applyTheme(theme);
-    saveThemePref(theme);
-    syncThemeToggle(theme);
+    if (themeSpinning) return;
+    themeSpinning = true;
+    themeToggleIcon.classList.add("theme-spinning");
+    setTimeout(() => {
+      const theme: ThemeName = loadThemePref() === "dark" ? "light" : "dark";
+      applyTheme(theme);
+      saveThemePref(theme);
+      syncThemeToggle(theme);
+    }, 350);
+    setTimeout(() => {
+      themeSpinning = false;
+      themeToggleIcon.classList.remove("theme-spinning");
+    }, 1000);
   });
 
   const statBadgeToggle = document.querySelector<HTMLInputElement>("#stat-badge-toggle")!;
@@ -628,7 +644,7 @@ function renderInitError(): void {
 
 async function init(): Promise<void> {
   renderShell(
-    `<h2 class="query-builder__heading">Build your pool</h2><p class="query-builder__placeholder pool__placeholder--loading">${renderSpinner("Loading", "sm")}<span>Loading teams…</span></p>`,
+    `<h2 class="query-builder__heading">Add Players</h2><p class="query-builder__placeholder pool__placeholder--loading">${renderSpinner("Loading", "sm")}<span>Loading teams…</span></p>`,
     `<p class="pool__placeholder">Players will appear here once a query runs.</p>`,
   );
 
