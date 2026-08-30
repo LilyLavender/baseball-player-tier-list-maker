@@ -1,5 +1,6 @@
 import type { PoolPlayer } from "../types/mlb";
 import type { TierDefinition } from "../data/tiers";
+import { tierHueColor } from "../data/tierColors";
 
 export type AutoTierScheme = "sf" | "sf-plus-minus" | "custom";
 
@@ -27,11 +28,14 @@ function parseValue(player: PoolPlayer): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
-/** Best tier (index 0) is green, worst is red, regardless of stat direction. */
+/**
+ * Best tier (index 0) is red, worst is blue, matching the default tier board's top-to-bottom
+ * sweep (and its saturation/lightness) so auto-generated tiers look the same as manual ones.
+ */
 function rankColor(index: number, total: number): string {
-  if (total <= 1) return "hsl(150, 50%, 35%)";
-  const hue = 150 - (index / (total - 1)) * 145;
-  return `hsl(${hue.toFixed(0)}, 55%, 38%)`;
+  if (total <= 1) return tierHueColor(0);
+  const hue = (index / (total - 1)) * 240;
+  return tierHueColor(hue);
 }
 
 interface Bucket {

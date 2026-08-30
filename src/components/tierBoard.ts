@@ -6,6 +6,7 @@ import { bindConditionalField } from "../utils/conditionalField";
 import { icon } from "../utils/icon";
 import { escapeHtml } from "../utils/escapeHtml";
 import { TIER_COLOR_PALETTE } from "../data/tierColors";
+import { loadAutoTierPref, saveAutoTierPref } from "../storage/autoTierPref";
 
 const TIER_NAME_MAX_FONT_REM = 1.7;
 const TIER_NAME_MIN_FONT_REM = 0.85;
@@ -38,7 +39,12 @@ export interface TierBoardCallbacks {
   onGenerateAutoTiers: (strategy: AutoTierStrategy) => void;
 }
 
-export function renderTierBoard(tiers: TierDefinition[], tierPlayers: PoolPlayer[][] = []): string {
+export function renderTierBoard(
+  tiers: TierDefinition[],
+  tierPlayers: PoolPlayer[][] = [],
+  poolActionsHtml: string = "",
+): string {
+  const autoTierPref = loadAutoTierPref();
   const rows = tiers
     .map((tier, index) => {
       const cards = (tierPlayers[index] ?? []).map(renderPlayerCard).join("");
@@ -92,6 +98,7 @@ export function renderTierBoard(tiers: TierDefinition[], tierPlayers: PoolPlayer
                   ).join("")}
                   <label class="tier-row__color-swatch tier-row__color-swatch--custom" title="Custom color">
                     <input type="color" class="tier-row__settings-color" data-tier-index="${index}" value="${tier.color}" />
+                    ${icon("colorize")}
                   </label>
                 </div>
               </div>
@@ -117,6 +124,7 @@ export function renderTierBoard(tiers: TierDefinition[], tierPlayers: PoolPlayer
       ${rows}
       <div class="board__actions">
         <button type="button" id="add-tier" class="board__add-tier">${icon("add")} Add tier</button>
+        ${poolActionsHtml}
         <div class="board__autotier">
           <button
             type="button"
@@ -133,30 +141,30 @@ export function renderTierBoard(tiers: TierDefinition[], tierPlayers: PoolPlayer
             <label class="query-builder__field">
               Strategy
               <select id="qb-autotier-strategy">
-                <option value="interval">Fixed interval</option>
-                <option value="per-unit">One tier per value</option>
-                <option value="auto-grouping">Auto S-F grouping (natural breaks)</option>
-                <option value="thresholds">Custom thresholds</option>
+                <option value="interval"${autoTierPref.strategy === "interval" ? " selected" : ""}>Fixed interval</option>
+                <option value="per-unit"${autoTierPref.strategy === "per-unit" ? " selected" : ""}>One tier per value</option>
+                <option value="auto-grouping"${autoTierPref.strategy === "auto-grouping" ? " selected" : ""}>Auto S-F grouping (natural breaks)</option>
+                <option value="thresholds"${autoTierPref.strategy === "thresholds" ? " selected" : ""}>Custom thresholds</option>
               </select>
             </label>
             <label class="query-builder__field" id="qb-autotier-interval-field">
               Interval size
-              <input id="qb-autotier-interval" type="number" value="10" min="0.1" step="0.1" />
+              <input id="qb-autotier-interval" type="number" value="${autoTierPref.intervalSize}" min="0.1" step="0.1" />
             </label>
             <label class="query-builder__field query-builder__field--checkbox" id="qb-autotier-empty-field" hidden>
-              <input id="qb-autotier-empty" type="checkbox" />
+              <input id="qb-autotier-empty" type="checkbox"${autoTierPref.showEmptyTiers ? " checked" : ""} />
               Show empty tiers between values
             </label>
             <label class="query-builder__field" id="qb-autotier-thresholds-field" hidden>
               Thresholds (comma-separated)
-              <input id="qb-autotier-thresholds" type="text" placeholder="e.g. 40, 30, 20, 10" />
+              <input id="qb-autotier-thresholds" type="text" placeholder="e.g. 40, 30, 20, 10" value="${escapeHtml(autoTierPref.thresholds)}" />
             </label>
             <label class="query-builder__field" id="qb-autotier-scheme-field" hidden>
               Tier scheme
               <select id="qb-autotier-scheme">
-                <option value="sf">S-F (6 tiers)</option>
-                <option value="sf-plus-minus">S-F with +/- (up to 18 tiers)</option>
-                <option value="custom">Use current tier board's labels</option>
+                <option value="sf"${autoTierPref.scheme === "sf" ? " selected" : ""}>S-F (6 tiers)</option>
+                <option value="sf-plus-minus"${autoTierPref.scheme === "sf-plus-minus" ? " selected" : ""}>S-F with +/- (up to 18 tiers)</option>
+                <option value="custom"${autoTierPref.scheme === "custom" ? " selected" : ""}>Use current tier board's labels</option>
               </select>
             </label>
             <button type="button" id="qb-autotier-apply" class="board__autotier-apply">${icon("stacked_bar_chart")} Generate Tiers</button>
@@ -413,15 +421,22 @@ function bindAutoTierPopover(callbacks: TierBoardCallbacks): void {
 
   autoTierApplyButton.addEventListener("click", () => {
     const kind = strategySelect.value;
+    const scheme =
+      schemeSelect.value === "sf-plus-minus" || schemeSelect.value === "custom" ? schemeSelect.value : "sf";
+
+    saveAutoTierPref({
+      strategy: kind === "per-unit" || kind === "auto-grouping" || kind === "thresholds" ? kind : "interval",
+      intervalSize: Number(intervalInput.value) || 1,
+      showEmptyTiers: emptyTiersCheckbox.checked,
+      thresholds: thresholdsInput.value,
+      scheme,
+    });
+
     if (kind === "interval") {
       callbacks.onGenerateAutoTiers({ kind: "interval", size: Number(intervalInput.value) || 1 });
     } else if (kind === "per-unit") {
       callbacks.onGenerateAutoTiers({ kind: "per-unit", showEmptyTiers: emptyTiersCheckbox.checked });
     } else if (kind === "auto-grouping") {
-      const scheme =
-        schemeSelect.value === "sf-plus-minus" || schemeSelect.value === "custom"
-          ? schemeSelect.value
-          : "sf";
       callbacks.onGenerateAutoTiers({ kind: "auto-grouping", scheme });
     } else if (kind === "thresholds") {
       const thresholds = thresholdsInput.value

@@ -73,12 +73,61 @@ body {
 .topbar__checkbox {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
   font-family: var(--font-body);
   font-size: 0.8rem;
   color: var(--color-chalk-white);
   user-select: none;
   cursor: pointer;
+}
+
+.topbar__toggle {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 1.1rem;
+}
+
+.topbar__toggle-input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.topbar__toggle-track {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  transition: background 120ms ease;
+}
+
+.topbar__toggle-thumb {
+  position: absolute;
+  top: 0.1rem;
+  left: 0.1rem;
+  width: 0.75rem;
+  height: 0.75rem;
+  background: var(--color-chalk-white);
+  border-radius: 50%;
+  transition: transform 120ms ease;
+}
+
+.topbar__toggle-input:checked + .topbar__toggle-track {
+  background: var(--color-accent);
+}
+
+.topbar__toggle-input:checked + .topbar__toggle-track .topbar__toggle-thumb {
+  transform: translateX(0.9rem);
+}
+
+.topbar__toggle-input:focus-visible + .topbar__toggle-track {
+  outline: 2px solid var(--color-chalk-white);
+  outline-offset: 2px;
 }
 
 .topbar__save,
@@ -102,7 +151,9 @@ body {
 .topbar__btn {
   background: transparent;
   color: var(--color-chalk-white);
-  border: 1px solid var(--color-chalk-white);
+  border: 2px solid var(--color-chalk-white);
+  /* Shares .topbar__save's padding above; trimmed slightly here so the extra border doesn't add much height. */
+  padding: 0.35rem 0.9rem;
 }
 
 .topbar__save:hover,
@@ -446,16 +497,33 @@ body {
 }
 
 .tier-row__color-swatch--custom {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+  background: var(--color-bg);
+  border-color: var(--color-border);
   overflow: hidden;
 }
 
+.tier-row__color-swatch--custom:focus-within {
+  border-color: var(--color-text);
+}
+
+.tier-row__color-swatch--custom .material-symbols-outlined {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
 .tier-row__color-swatch--custom input[type="color"] {
-  width: 2rem;
-  height: 2rem;
+  width: 100%;
+  height: 100%;
   padding: 0;
   border: none;
   background: none;
@@ -516,9 +584,45 @@ body {
   border-bottom: 2px var(--divider-style) var(--divider-color);
 }
 
+/* :has(+ sibling) rather than :last-of-type, since .board__actions is also a <div> and would
+   otherwise be the element :last-of-type actually matches. */
+.tier-row:has(+ .board__actions) .tier-row__cards {
+  border-bottom: none;
+}
+
 .board__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.board__pool-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+  padding: 0.6rem 1rem;
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.board__pool-action:hover {
+  color: var(--color-primary-text);
+  border-color: var(--color-primary-text);
+}
+
+#clear-pool.board__pool-action:hover {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+#return-all-to-pool.board__pool-action:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
 }
 
 .board__add-tier {
@@ -530,8 +634,8 @@ body {
   font-family: var(--font-display);
   font-size: 0.85rem;
   letter-spacing: 0.01em;
-  padding: 0.6rem;
-  border: 2px dashed var(--color-border);
+  padding: 0.6rem 1rem;
+  border: none;
   background: var(--color-surface);
   color: var(--color-text-muted);
   cursor: pointer;
@@ -539,7 +643,7 @@ body {
 
 .board__add-tier:hover {
   color: var(--color-primary-text);
-  border-color: var(--color-primary-text);
+  background: var(--color-bg);
 }
 
 .board__reset-tiers {
@@ -650,12 +754,6 @@ body {
   color: var(--color-text-muted);
 }
 
-.pool__header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
 .pool-filters {
   position: relative;
   display: inline-flex;
@@ -665,13 +763,12 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font: inherit;
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.3rem 0.6rem;
-  border: 1px solid var(--color-border);
-  border-radius: 3px;
-  background: var(--color-bg);
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+  padding: 0.6rem 1rem;
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
   color: var(--color-text-muted);
   cursor: pointer;
 }
@@ -702,8 +799,8 @@ body {
 
 .pool-filters__popover {
   position: absolute;
-  top: calc(100% + 0.4rem);
-  right: 0;
+  bottom: calc(100% + 0.4rem);
+  left: 0;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -894,31 +991,6 @@ body {
 
 .player-search__result--empty:hover {
   background: none;
-}
-
-.pool__clear {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  font: inherit;
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.3rem 0.6rem;
-  border: 1px solid var(--color-border);
-  border-radius: 3px;
-  background: var(--color-bg);
-  color: var(--color-text-muted);
-  cursor: pointer;
-}
-
-#clear-pool:hover {
-  color: var(--color-danger);
-  border-color: var(--color-danger);
-}
-
-#return-all-to-pool:hover {
-  color: var(--color-accent);
-  border-color: var(--color-accent);
 }
 
 .pool__placeholder {
@@ -1344,10 +1416,6 @@ body {
   .pool__header {
     flex-wrap: wrap;
     gap: 0.5rem;
-  }
-
-  .pool__header-actions {
-    flex-wrap: wrap;
   }
 
   .combo__list {

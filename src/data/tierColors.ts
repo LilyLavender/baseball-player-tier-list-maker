@@ -16,3 +16,11 @@ export const TIER_COLOR_PALETTE: string[] = [
   "#b81eb8",
   "#b81e6b",
 ];
+
+/** Saturation/lightness shared by every preset swatch above, so any hue can be matched against it. */
+export const TIER_COLOR_SATURATION = 72;
+export const TIER_COLOR_LIGHTNESS = 42;
+
+export function tierHueColor(hue: number): string {
+  return `hsl(${((hue % 360) + 360) % 360}, ${TIER_COLOR_SATURATION}%, ${TIER_COLOR_LIGHTNESS}%)`;
+}

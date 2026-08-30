@@ -146,14 +146,18 @@ function renderPoolSection(poolContent: string): string {
     <section class="pool">
       <div class="pool__header">
         <h2 class="pool__heading">Unranked pool <span id="pool-count" class="pool__count"></span></h2>
-        <div class="pool__header-actions">
-          ${renderPoolFilters(teams, countryFilterOptions)}
-          <button id="return-all-to-pool" type="button" class="pool__clear">${icon("undo")} Return all to pool</button>
-          <button id="clear-pool" type="button" class="pool__clear">${icon("clear_all")} Clear pool</button>
-        </div>
       </div>
       <div id="pool-content">${poolContent}</div>
     </section>
+  `;
+}
+
+/** Rendered into the tier board's action row, between "Add tier" and "Auto-tier". */
+function renderPoolActionsHtml(): string {
+  return `
+    ${renderPoolFilters(teams, countryFilterOptions)}
+    <button id="return-all-to-pool" type="button" class="board__pool-action">${icon("undo")} Return all to pool</button>
+    <button id="clear-pool" type="button" class="board__pool-action">${icon("clear_all")} Clear pool</button>
   `;
 }
 
@@ -298,7 +302,7 @@ function onSearchAddPlayer(player: PoolPlayer): void {
 function rerenderBoardAndPool(tierPlayers: PoolPlayer[][], poolPlayers: PoolPlayer[]): void {
   const boardWrap = document.querySelector<HTMLDivElement>(".board-wrap")!;
   boardWrap.innerHTML = `
-    ${renderTierBoard(currentTiers, tierPlayers)}
+    ${renderTierBoard(currentTiers, tierPlayers, renderPoolActionsHtml())}
     ${renderPoolSection(renderPlayerPool(poolPlayers))}
   `;
   initTierSortables(tierDropZoneIds(currentTiers.length));
@@ -365,13 +369,16 @@ function renderShell(
           <span class="topbar__theme-toggle-icon material-symbols-outlined" aria-hidden="true">dark_mode</span>
         </button>
         <label class="topbar__checkbox">
-          <input id="stat-badge-toggle" type="checkbox" />
+          <span class="topbar__toggle">
+            <input id="stat-badge-toggle" type="checkbox" class="topbar__toggle-input" />
+            <span class="topbar__toggle-track"><span class="topbar__toggle-thumb"></span></span>
+          </span>
           Show stat numbers
         </label>
-        <button id="new-list" type="button" class="topbar__btn">${icon("note_add")} New</button>
+        <button id="new-list" type="button" class="topbar__btn">${icon("restart_alt")} Reset</button>
         <button id="history-open" type="button" class="topbar__btn">${icon("history")} History</button>
-        <button id="export-list" type="button" class="topbar__btn">${icon("download")} Export</button>
-        <button id="save-list" type="button" class="topbar__save">${icon("save")} Save</button>
+        <button id="save-list" type="button" class="topbar__btn">${icon("save")} Save</button>
+        <button id="export-list" type="button" class="topbar__save">${icon("download")} Export</button>
       </div>
     </header>
     <div class="layout">
@@ -386,7 +393,7 @@ function renderShell(
         </div>
       </aside>
       <div class="board-wrap">
-        ${renderTierBoard(currentTiers, tierPlayers)}
+        ${renderTierBoard(currentTiers, tierPlayers, renderPoolActionsHtml())}
         ${renderPoolSection(poolContent)}
       </div>
     </div>
