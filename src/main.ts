@@ -16,11 +16,13 @@ import {
   emptyPoolFilterState,
   isPoolFilterActive,
   matchesPoolFilter,
+  refreshPoolFilterCountries,
   renderPoolFilters,
   syncPoolFilterUI,
 } from "./components/poolFilters";
 import type { PoolFilterState } from "./components/poolFilters";
 import { bindTierBoard, renderTierBoard, tierDropZoneIds } from "./components/tierBoard";
+import type { PoolActionsHtml } from "./components/tierBoard";
 import {
   initPoolSortable,
   initRemoveZoneSortable,
@@ -69,7 +71,16 @@ let currentPoolFilter: PoolFilterState = emptyPoolFilterState();
 let currentStatValues = new Map<number, number>();
 const teamStatCache = new Map<string, Map<number, number>>();
 let activeCountryByPlayerId = new Map<number, string>();
-let countryFilterOptions: string[] = [];
+
+/** Birth countries actually present among players currently in the unranked pool. */
+function poolBirthCountries(): string[] {
+  const countries = new Set<string>();
+  for (const id of collectPoolPlayerIds()) {
+    const country = playersById.get(id)?.birthCountry;
+    if (country) countries.add(country);
+  }
+  return Array.from(countries).sort();
+}
 
 function rememberPlayers(players: PoolPlayer[]): void {
   for (const player of players) {
@@ -152,13 +163,13 @@ function renderPoolSection(poolContent: string): string {
   `;
 }
 
-/** Rendered into the tier board's action row, between "Add tier" and "Auto-tier". */
-function renderPoolActionsHtml(): string {
-  return `
-    ${renderPoolFilters(teams, countryFilterOptions)}
-    <button id="return-all-to-pool" type="button" class="board__pool-action">${icon("undo")} Return all to pool</button>
-    <button id="clear-pool" type="button" class="board__pool-action">${icon("clear_all")} Clear pool</button>
-  `;
+/** Slotted into the tier board's action row around "Add tier"/"Auto-tier"/"Reset tiers". */
+function renderPoolActions(): PoolActionsHtml {
+  return {
+    filterPool: renderPoolFilters(teams, poolBirthCountries()),
+    returnToPool: `<button id="return-all-to-pool" type="button" class="board__pool-action">${icon("arrow_downward")} Return all to pool</button>`,
+    clearPool: `<button id="clear-pool" type="button" class="board__pool-action">${icon("clear_all")} Clear pool</button>`,
+  };
 }
 
 async function ensureStatValues(
@@ -233,7 +244,6 @@ function applyPoolFilterToDom(): void {
 function bindPoolFilterControls(): void {
   syncPoolFilterUI(currentPoolFilter);
   bindPoolFilters(
-    teams,
     (state) => {
       currentPoolFilter = state;
       syncPoolFilterUI(currentPoolFilter);
@@ -271,6 +281,12 @@ function bindPoolFilterControls(): void {
       syncPoolFilterUI(currentPoolFilter);
       applyPoolFilterToDom();
     },
+    () => {
+      const poolPlayers = playersFromIds(collectPoolPlayerIds());
+      void ensureBirthCountries(poolPlayers).then(() => {
+        refreshPoolFilterCountries(poolBirthCountries());
+      });
+    },
   );
 }
 
@@ -302,7 +318,7 @@ function onSearchAddPlayer(player: PoolPlayer): void {
 function rerenderBoardAndPool(tierPlayers: PoolPlayer[][], poolPlayers: PoolPlayer[]): void {
   const boardWrap = document.querySelector<HTMLDivElement>(".board-wrap")!;
   boardWrap.innerHTML = `
-    ${renderTierBoard(currentTiers, tierPlayers, renderPoolActionsHtml())}
+    ${renderTierBoard(currentTiers, tierPlayers, renderPoolActions())}
     ${renderPoolSection(renderPlayerPool(poolPlayers))}
   `;
   initTierSortables(tierDropZoneIds(currentTiers.length));
@@ -393,7 +409,7 @@ function renderShell(
         </div>
       </aside>
       <div class="board-wrap">
-        ${renderTierBoard(currentTiers, tierPlayers, renderPoolActionsHtml())}
+        ${renderTierBoard(currentTiers, tierPlayers, renderPoolActions())}
         ${renderPoolSection(poolContent)}
       </div>
     </div>
@@ -501,6 +517,10 @@ function updatePoolCount(): void {
   if (!countEl) return;
   const cards = document.querySelectorAll<HTMLElement>("#pool-content .player-card");
   const total = cards.length;
+  if (total === 0) {
+    countEl.textContent = "";
+    return;
+  }
   if (!isPoolFilterActive(currentPoolFilter)) {
     countEl.textContent = `(${total})`;
     return;
@@ -682,7 +702,6 @@ async function init(): Promise<void> {
   }
   teams = fetchedTeams;
   activeCountryByPlayerId = activeCountries.byPlayerId;
-  countryFilterOptions = activeCountries.countries;
 
   const lastOpenedId = getLastOpenedId();
   if (lastOpenedId && getSavedList(lastOpenedId)) {

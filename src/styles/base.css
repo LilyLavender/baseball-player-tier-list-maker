@@ -130,6 +130,56 @@ body {
   outline-offset: 2px;
 }
 
+/** Same pill switch as the topbar's "Show stat numbers" toggle, tuned for a light surface. */
+.toggle-switch {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 1.1rem;
+}
+
+.toggle-switch-input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.toggle-switch-track {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  transition: background 120ms ease;
+}
+
+.toggle-switch-thumb {
+  position: absolute;
+  top: 0.1rem;
+  left: 0.1rem;
+  width: 0.75rem;
+  height: 0.75rem;
+  background: var(--color-chalk-white);
+  border-radius: 50%;
+  transition: transform 120ms ease;
+}
+
+.toggle-switch-input:checked + .toggle-switch-track {
+  background: var(--color-accent);
+}
+
+.toggle-switch-input:checked + .toggle-switch-track .toggle-switch-thumb {
+  transform: translateX(0.9rem);
+}
+
+.toggle-switch-input:focus-visible + .toggle-switch-track {
+  outline: 2px solid var(--color-primary-text);
+  outline-offset: 2px;
+}
+
 .topbar__save,
 .topbar__btn {
   display: inline-flex;
@@ -232,6 +282,7 @@ body {
 }
 
 .query-builder__placeholder {
+  margin: 0 0 0.75rem;
   font-size: 0.85rem;
   color: var(--color-text-muted);
 }
@@ -242,6 +293,31 @@ body {
   gap: 0.25rem;
   font-size: 0.85rem;
   margin-bottom: 0.75rem;
+}
+
+.query-builder__field[hidden] {
+  display: none;
+}
+
+.query-builder__group {
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.6rem 0;
+}
+
+.query-builder__group-legend {
+  padding: 0 0.3rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.query-builder__group .query-builder__field {
+  margin-bottom: 0.6rem;
+}
+
+.query-builder__group .query-builder__field:last-child {
+  margin-bottom: 0.5rem;
 }
 
 .query-builder__field--checkbox {
@@ -608,6 +684,7 @@ body {
   background: var(--color-surface);
   color: var(--color-text-muted);
   cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
 .board__pool-action:hover {
@@ -639,6 +716,7 @@ body {
   background: var(--color-surface);
   color: var(--color-text-muted);
   cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
 }
 
 .board__add-tier:hover {
@@ -658,6 +736,7 @@ body {
   background: var(--color-surface);
   color: var(--color-text-muted);
   cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
 .board__reset-tiers:hover {
@@ -681,6 +760,7 @@ body {
   background: var(--color-surface);
   color: var(--color-text-muted);
   cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
 .board__autotier-toggle:hover,
@@ -692,7 +772,7 @@ body {
 .board__autotier-popover {
   position: absolute;
   bottom: calc(100% + 0.4rem);
-  left: 0;
+  right: 0;
   width: 18rem;
   max-width: calc(100vw - 2rem);
   max-height: 70vh;
@@ -771,6 +851,7 @@ body {
   background: var(--color-surface);
   color: var(--color-text-muted);
   cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
 .pool-filters__main-toggle:hover,
@@ -804,10 +885,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  width: 34rem;
-  max-width: calc(100vw - 2rem);
-  max-height: 70vh;
-  overflow-y: auto;
+  width: min(44rem, calc(100vw - 2rem));
   padding: 0.75rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -827,12 +905,20 @@ body {
   gap: 0.75rem;
 }
 
+.pool-filters__row--grids {
+  gap: 1.75rem;
+}
+
 .pool-filters__field {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
   font-size: 0.75rem;
   color: var(--color-text-muted);
+}
+
+.pool-filters__field[hidden] {
+  display: none;
 }
 
 .pool-filters__field--checkbox {
@@ -843,6 +929,12 @@ body {
 
 .pool-filters__field--checkbox input {
   width: auto;
+}
+
+/* Nudged up from the row's flex-end baseline so it centers on the adjacent dropdown itself,
+   not on the dropdown plus its label above. */
+.pool-filters__field--qualified {
+  margin-bottom: 0.2rem;
 }
 
 .pool-filters__field select,
@@ -861,66 +953,189 @@ body {
   color: var(--color-text-muted);
 }
 
-.pool-filters__team-picker {
+.pool-filters__picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  align-self: flex-start;
+}
+
+.pool-filters__picker-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pool-filters__select-all-btn {
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 0.7rem;
+  width: 5.5rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.pool-filters__select-all-btn:hover {
+  color: var(--color-primary-text);
+  border-color: var(--color-primary-text);
+}
+
+.pool-filters__select-all-btn[aria-pressed="true"] {
+  background: var(--color-primary);
+  color: var(--color-chalk-white);
+  border-color: var(--color-primary);
+}
+
+.pool-filters__team-columns {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.pool-filters__division-column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+
+.pool-filters__division-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 1.4rem;
+  padding: 0;
+  border: 1px solid var(--color-primary);
+  border-radius: 3px;
+  background: var(--color-surface);
+  color: var(--color-primary-text);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.pool-filters__division-toggle:hover {
+  background: var(--color-primary);
+  color: var(--color-chalk-white);
+}
+
+.pool-filters__division-toggle .material-symbols-outlined {
+  font-size: 1rem;
+}
+
+.pool-filters__team-column {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
 }
 
-.pool-filters__chips {
+.pool-filters__team-subcolumns {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
+  gap: 0.25rem;
 }
 
-.pool-filters__chip {
-  font-size: 0.7rem;
-  padding: 0.15rem 0.5rem;
-  border: 1px solid var(--color-accent);
-  border-radius: 999px;
-  background: var(--color-surface);
-  color: var(--color-accent);
-  cursor: pointer;
-}
-
-.pool-filters__chip:hover {
-  background: var(--color-accent);
-  color: var(--color-chalk-white);
-}
-
-.pool-filters__team-select {
-  font: inherit;
-  font-size: 0.8rem;
+.pool-filters__team-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
   padding: 0.2rem;
-  border: 1px solid var(--color-border);
-  border-radius: 2px;
-  background: var(--color-surface);
-  color: var(--color-text);
-  min-width: 12rem;
+  border: 2px solid transparent;
+  border-radius: 3px;
+  background: var(--color-bg);
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.15s ease, border-color 0.15s ease;
 }
 
-.pool-filters__toggle {
+.pool-filters__team-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.pool-filters__team-btn:hover {
+  opacity: 0.85;
+}
+
+.pool-filters__team-btn--active {
+  opacity: 1;
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+
+.pool-filters__country-btn {
   display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0.15rem;
+  font-size: 1.1rem;
+  line-height: 1;
+  border: 2px solid transparent;
+  border-radius: 3px;
+  background: var(--color-bg);
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.15s ease, border-color 0.15s ease;
 }
 
-.pool-filters__toggle-btn {
+.pool-filters__country-btn:hover {
+  opacity: 0.85;
+}
+
+.pool-filters__country-btn--active {
+  opacity: 1;
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+
+.pool-filters__position-groups {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.pool-filters__position-btn {
   font: inherit;
-  font-size: 0.8rem;
-  padding: 0.3rem 0.6rem;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
+  font-size: 0.75rem;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 3px;
+  background: var(--color-bg);
   color: var(--color-text-muted);
   cursor: pointer;
+  opacity: 0.5;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease;
 }
 
-.pool-filters__toggle-btn:not(:first-child) {
-  border-left: none;
+.pool-filters__position-btn[data-position="TWP"] {
+  font-size: 0.6rem;
 }
 
-.pool-filters__toggle-btn--active {
+.pool-filters__position-btn:hover {
+  opacity: 0.85;
+}
+
+.pool-filters__position-btn--active {
   background: var(--color-primary);
   color: var(--color-chalk-white);
   border-color: var(--color-primary);
+  opacity: 1;
+}
+
+.pool-filters__actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .pool-filters__apply,
@@ -932,20 +1147,30 @@ body {
   font-size: 0.8rem;
   font-weight: 600;
   padding: 0.4rem 0.8rem;
-  border: none;
   border-radius: 2px;
   cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .pool-filters__apply {
+  border: none;
   background: var(--color-accent);
   color: var(--color-chalk-white);
 }
 
+.pool-filters__apply:hover {
+  filter: brightness(0.95);
+}
+
 .pool-filters__clear {
-  background: transparent;
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
   color: var(--color-text-muted);
-  text-decoration: underline;
+}
+
+.pool-filters__clear:hover {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
 }
 
 .player-card--filtered-out {

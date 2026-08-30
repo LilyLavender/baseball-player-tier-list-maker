@@ -8,6 +8,7 @@ import { bindConditionalField } from "../utils/conditionalField";
 import { icon } from "../utils/icon";
 import { bindPlayerSearch, renderPlayerSearch } from "./playerSearch";
 import type { PoolPlayer } from "../types/mlb";
+import { renderToggleSwitch } from "../utils/toggleSwitch";
 
 export interface StatQueryParams {
   statCategoryId: string;
@@ -101,15 +102,30 @@ export function renderQueryBuilder(
         Scope
         <select id="qb-stat-scope">
           <option value="season" selected>Single season</option>
-          <option value="career">Career (all-time)</option>
+          <option value="career">All time</option>
         </select>
       </label>
       <label class="query-builder__field" id="qb-stat-season-field">
         Season
         <input id="qb-stat-season" type="number" value="${CURRENT_YEAR}" min="1901" max="${CURRENT_YEAR}" />
       </label>
+      <fieldset class="query-builder__group">
+        <legend class="query-builder__group-legend">Minimums</legend>
+        <label class="query-builder__field">
+          <span id="qb-stat-value-label">value</span>
+          <input id="qb-stat-min-value" type="number" placeholder="No minimum" step="any" />
+        </label>
+        <label class="query-builder__field" id="qb-stat-qualifier-field">
+          <span id="qb-stat-qualifier-label">Plate Appearances</span>
+          <input id="qb-stat-min-qualifier" type="number" placeholder="No minimum" step="any" />
+        </label>
+        <label class="query-builder__field query-builder__field--checkbox" id="qb-stat-qualified-field">
+          ${renderToggleSwitch("qb-stat-qualified")}
+          Use official qualified minimum
+        </label>
+      </fieldset>
       <label class="query-builder__field">
-        Top N
+        Amount
         <select id="qb-stat-limit">
           <option value="10">Top 10</option>
           <option value="25">Top 25</option>
@@ -117,18 +133,6 @@ export function renderQueryBuilder(
           <option value="100">Top 100</option>
           <option value="${ALL_LIMIT}" selected>All</option>
         </select>
-      </label>
-      <label class="query-builder__field">
-        Min <span id="qb-stat-value-label">value</span>
-        <input id="qb-stat-min-value" type="number" placeholder="No minimum" step="any" />
-      </label>
-      <label class="query-builder__field query-builder__field--checkbox">
-        <input id="qb-stat-qualified" type="checkbox" />
-        Use official qualified minimum
-      </label>
-      <label class="query-builder__field">
-        Min <span id="qb-stat-qualifier-label">Plate Appearances</span>
-        <input id="qb-stat-min-qualifier" type="number" placeholder="No minimum" step="any" />
       </label>
       <button id="qb-stat-apply" type="button">${icon("group_add")} Add to Pool</button>
     </div>
@@ -147,6 +151,11 @@ function applyStatFieldDefaults(statId: string): void {
   document.querySelector("#qb-stat-value-label")!.textContent = stat.label;
   document.querySelector("#qb-stat-qualifier-label")!.textContent = qualifier.label;
   document.querySelector<HTMLInputElement>("#qb-stat-qualified")!.checked = stat.qualified;
+
+  document.querySelector<HTMLElement>("#qb-stat-qualifier-field")!.hidden = !stat.qualified;
+  if (!stat.qualified) {
+    document.querySelector<HTMLInputElement>("#qb-stat-min-qualifier")!.value = "";
+  }
 }
 
 function bindQueryBuilderTabs(): void {

@@ -39,10 +39,18 @@ export interface TierBoardCallbacks {
   onGenerateAutoTiers: (strategy: AutoTierStrategy) => void;
 }
 
+export interface PoolActionsHtml {
+  filterPool: string;
+  returnToPool: string;
+  clearPool: string;
+}
+
+const EMPTY_POOL_ACTIONS: PoolActionsHtml = { filterPool: "", returnToPool: "", clearPool: "" };
+
 export function renderTierBoard(
   tiers: TierDefinition[],
   tierPlayers: PoolPlayer[][] = [],
-  poolActionsHtml: string = "",
+  poolActions: PoolActionsHtml = EMPTY_POOL_ACTIONS,
 ): string {
   const autoTierPref = loadAutoTierPref();
   const rows = tiers
@@ -124,7 +132,7 @@ export function renderTierBoard(
       ${rows}
       <div class="board__actions">
         <button type="button" id="add-tier" class="board__add-tier">${icon("add")} Add tier</button>
-        ${poolActionsHtml}
+        ${poolActions.filterPool}
         <div class="board__autotier">
           <button
             type="button"
@@ -133,7 +141,7 @@ export function renderTierBoard(
             aria-haspopup="true"
             aria-expanded="false"
             aria-controls="autotier-popover"
-          >Auto-tier ${icon("expand_more")}</button>
+          >${icon("arrow_upward")} Auto-tier ${icon("expand_more")}</button>
           <div id="autotier-popover" class="board__autotier-popover" hidden>
             <p class="query-builder__placeholder">
               Builds tiers from stat values already in the pool. Run a stat leaders query first.
@@ -143,7 +151,7 @@ export function renderTierBoard(
               <select id="qb-autotier-strategy">
                 <option value="interval"${autoTierPref.strategy === "interval" ? " selected" : ""}>Fixed interval</option>
                 <option value="per-unit"${autoTierPref.strategy === "per-unit" ? " selected" : ""}>One tier per value</option>
-                <option value="auto-grouping"${autoTierPref.strategy === "auto-grouping" ? " selected" : ""}>Auto S-F grouping (natural breaks)</option>
+                <option value="auto-grouping"${autoTierPref.strategy === "auto-grouping" ? " selected" : ""}>Auto S-F grouping</option>
                 <option value="thresholds"${autoTierPref.strategy === "thresholds" ? " selected" : ""}>Custom thresholds</option>
               </select>
             </label>
@@ -162,15 +170,17 @@ export function renderTierBoard(
             <label class="query-builder__field" id="qb-autotier-scheme-field" hidden>
               Tier scheme
               <select id="qb-autotier-scheme">
-                <option value="sf"${autoTierPref.scheme === "sf" ? " selected" : ""}>S-F (6 tiers)</option>
-                <option value="sf-plus-minus"${autoTierPref.scheme === "sf-plus-minus" ? " selected" : ""}>S-F with +/- (up to 18 tiers)</option>
+                <option value="sf"${autoTierPref.scheme === "sf" ? " selected" : ""}>S-F</option>
+                <option value="sf-plus-minus"${autoTierPref.scheme === "sf-plus-minus" ? " selected" : ""}>S-F with +/-</option>
                 <option value="custom"${autoTierPref.scheme === "custom" ? " selected" : ""}>Use current tier board's labels</option>
               </select>
             </label>
             <button type="button" id="qb-autotier-apply" class="board__autotier-apply">${icon("stacked_bar_chart")} Generate Tiers</button>
           </div>
         </div>
+        ${poolActions.returnToPool}
         <button type="button" id="reset-tiers" class="board__reset-tiers">${icon("restart_alt")} Reset tiers</button>
+        ${poolActions.clearPool}
       </div>
     </div>
   `;
@@ -382,11 +392,17 @@ function bindAutoTierPopover(callbacks: TierBoardCallbacks): void {
 
   const closePopover = () => {
     popover.hidden = true;
+    popover.style.right = "";
     toggle.setAttribute("aria-expanded", "false");
   };
   const openPopover = () => {
     popover.hidden = false;
     toggle.setAttribute("aria-expanded", "true");
+
+    popover.style.right = "0";
+    const margin = 16;
+    const overflowLeft = margin - popover.getBoundingClientRect().left;
+    if (overflowLeft > 0) popover.style.right = `-${overflowLeft}px`;
   };
 
   toggle.addEventListener("click", () => {
@@ -415,7 +431,7 @@ function bindAutoTierPopover(callbacks: TierBoardCallbacks): void {
   const autoTierApplyButton = document.querySelector<HTMLButtonElement>("#qb-autotier-apply")!;
 
   bindConditionalField(strategySelect, intervalField, ["interval"]);
-  bindConditionalField(strategySelect, emptyTiersField, ["per-unit"]);
+  bindConditionalField(strategySelect, emptyTiersField, ["interval", "per-unit"]);
   bindConditionalField(strategySelect, thresholdsField, ["thresholds"]);
   bindConditionalField(strategySelect, schemeField, ["auto-grouping"]);
 
@@ -433,7 +449,11 @@ function bindAutoTierPopover(callbacks: TierBoardCallbacks): void {
     });
 
     if (kind === "interval") {
-      callbacks.onGenerateAutoTiers({ kind: "interval", size: Number(intervalInput.value) || 1 });
+      callbacks.onGenerateAutoTiers({
+        kind: "interval",
+        size: Number(intervalInput.value) || 1,
+        showEmptyTiers: emptyTiersCheckbox.checked,
+      });
     } else if (kind === "per-unit") {
       callbacks.onGenerateAutoTiers({ kind: "per-unit", showEmptyTiers: emptyTiersCheckbox.checked });
     } else if (kind === "auto-grouping") {
