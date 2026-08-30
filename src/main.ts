@@ -51,6 +51,7 @@ import type { TierDefinition } from "./data/tiers";
 import { TIER_COLOR_PALETTE } from "./data/tierColors";
 import { describeQuery } from "./utils/queryLabel";
 import { exportTierListAsPng } from "./export/exportImage";
+import { bindExportPanel, renderExportPanel } from "./components/exportModal";
 import { generateAutoTiers } from "./tiering/autoTier";
 import type { AutoTierStrategy } from "./tiering/autoTier";
 import type { PoolPlayer, Team } from "./types/mlb";
@@ -395,7 +396,13 @@ function renderShell(
         <button id="new-list" type="button" class="topbar__btn">${icon("restart_alt")} Reset</button>
         <button id="history-open" type="button" class="topbar__btn">${icon("history")} History</button>
         <button id="save-list" type="button" class="topbar__btn">${icon("save")} Save</button>
-        <button id="export-list" type="button" class="topbar__save">${icon("download")} Export</button>
+        <div class="export-menu-wrap">
+          <button id="export-list" type="button" class="topbar__save">${icon("download")} Export</button>
+          ${renderExportPanel({
+            title: (currentListId && getSavedList(currentListId)?.title) || describeQuery(currentQuery, teams),
+            theme: loadThemePref(),
+          })}
+        </div>
       </div>
     </header>
     <div class="layout">
@@ -460,25 +467,54 @@ function renderShell(
     openHistoryPanel();
   });
 
-  document.querySelector<HTMLButtonElement>("#export-list")!.addEventListener("click", (event) => {
-    const button = event.currentTarget as HTMLButtonElement;
-    const title =
-      (currentListId && getSavedList(currentListId)?.title) || describeQuery(currentQuery, teams);
-    const tierPlayers = collectTierPlayerIds(currentTiers.length).map(playersFromIds);
+  const exportButton = document.querySelector<HTMLButtonElement>("#export-list")!;
+  const exportPanel = document.querySelector<HTMLDivElement>("#export-panel")!;
 
-    button.disabled = true;
-    const originalLabel = button.innerHTML;
-    button.innerHTML = `${renderSpinner("Exporting", "sm", "current")} Exporting…`;
+  const closeExportPanel = () => {
+    exportPanel.hidden = true;
+    document.removeEventListener("click", handleOutsideExportClick, true);
+  };
 
-    exportTierListAsPng(title, currentTiers, tierPlayers)
-      .catch((error) => {
-        console.error(error);
-        window.alert("Couldn't export the tier list. Try again.");
-      })
-      .finally(() => {
-        button.disabled = false;
-        button.innerHTML = originalLabel;
-      });
+  function handleOutsideExportClick(event: MouseEvent) {
+    if (exportPanel.contains(event.target as Node) || exportButton.contains(event.target as Node)) return;
+    closeExportPanel();
+  }
+
+  exportButton.addEventListener("click", () => {
+    if (!exportPanel.hidden) {
+      closeExportPanel();
+      return;
+    }
+    exportPanel.hidden = false;
+    document.addEventListener("click", handleOutsideExportClick, true);
+    exportPanel.querySelector<HTMLInputElement>("#export-panel-title-input")!.focus();
+  });
+
+  bindExportPanel({
+    onClose: closeExportPanel,
+    onExport: ({ title, subtitle, theme }) => {
+      const tierPlayers = collectTierPlayerIds(currentTiers.length).map(playersFromIds);
+      const submitButton = document.querySelector<HTMLButtonElement>("#export-panel-submit")!;
+
+      submitButton.disabled = true;
+      const originalLabel = submitButton.innerHTML;
+      submitButton.innerHTML = `${renderSpinner("Exporting", "sm", "current")} Exporting…`;
+
+      exportTierListAsPng(
+        { title, subtitle, theme, showStatBadges: loadStatBadgePref() },
+        currentTiers,
+        tierPlayers,
+      )
+        .then(() => closeExportPanel())
+        .catch((error) => {
+          console.error(error);
+          window.alert("Couldn't export the tier list. Try again.");
+        })
+        .finally(() => {
+          submitButton.disabled = false;
+          submitButton.innerHTML = originalLabel;
+        });
+    },
   });
 
   const themeToggle = document.querySelector<HTMLButtonElement>("#theme-toggle")!;
