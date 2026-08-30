@@ -258,7 +258,8 @@ function bindPoolFilterControls(): void {
 
       const statusEl = document.querySelector<HTMLSpanElement>("#pf-status");
       const applyButton = document.querySelector<HTMLButtonElement>("#pf-apply");
-      if (statusEl) statusEl.innerHTML = `${renderSpinner("Applying filters", "sm")} Applying…`;
+      if (statusEl)
+        statusEl.innerHTML = `${renderSpinner("Applying filters", "sm", "current")} Applying…`;
       if (applyButton) applyButton.disabled = true;
 
       void Promise.all([statValuesPromise, birthCountriesPromise])
@@ -467,7 +468,7 @@ function renderShell(
 
     button.disabled = true;
     const originalLabel = button.innerHTML;
-    button.innerHTML = `${renderSpinner("Exporting", "sm")} Exporting…`;
+    button.innerHTML = `${renderSpinner("Exporting", "sm", "current")} Exporting…`;
 
     exportTierListAsPng(title, currentTiers, tierPlayers)
       .catch((error) => {
@@ -546,7 +547,7 @@ async function loadTeamPool(teamId: number | "all", season: number): Promise<voi
   currentQuery = { kind: "team", teamId, season };
   const existingPoolIds = collectPoolPlayerIds();
   setPoolContent(
-    `<p class="pool__placeholder pool__placeholder--loading">${renderSpinner("Loading", "lg")}<span>${teamId === "all" ? "Loading all rosters…" : "Loading roster…"}</span></p>`,
+    `<p class="pool__placeholder pool__placeholder--loading">${renderSpinner("Loading", "lg", "current")}<span>${teamId === "all" ? "Loading all rosters…" : "Loading roster…"}</span></p>`,
   );
 
   let players: PoolPlayer[] = [];
@@ -579,7 +580,7 @@ async function loadStatPool(params: StatQueryParams): Promise<void> {
   };
   const existingPoolIds = collectPoolPlayerIds();
   setPoolContent(
-    `<p class="pool__placeholder pool__placeholder--loading">${renderSpinner("Loading", "lg")}<span>${params.scope === "career" ? "Loading career leaders…" : "Loading leaders…"}</span></p>`,
+    `<p class="pool__placeholder pool__placeholder--loading">${renderSpinner("Loading", "lg", "current")}<span>${params.scope === "career" ? "Loading career leaders…" : "Loading leaders…"}</span></p>`,
   );
 
   let players: PoolPlayer[] = [];
@@ -681,7 +682,7 @@ function renderInitError(): void {
 
 async function init(): Promise<void> {
   renderShell(
-    `<h2 class="query-builder__heading">Add Players</h2><p class="query-builder__placeholder pool__placeholder--loading">${renderSpinner("Loading", "sm")}<span>Loading teams…</span></p>`,
+    `<h2 class="query-builder__heading">Add Players</h2><p class="query-builder__placeholder pool__placeholder--loading">${renderSpinner("Loading", "sm", "current")}<span>Loading teams…</span></p>`,
     `<p class="pool__placeholder">Players will appear here once a query runs.</p>`,
   );
 

@@ -1576,6 +1576,11 @@ body {
   animation-delay: -0.9s;
 }
 
+.spinner--track-current .spinner__track {
+  stroke: currentColor;
+  opacity: 0.35;
+}
+
 @keyframes spinner-dual-chasers {
   to {
     stroke-dashoffset: -156;
