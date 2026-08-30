@@ -356,7 +356,7 @@ function renderShell(
       <div class="topbar__brand">
         <svg class="topbar__logo" viewBox="0 0 64 64" width="26" height="26" aria-hidden="true">
           <polygon points="32,4 60,32 32,60 4,32" fill="#f5f6f2"/>
-          <polyline points="18,36 32,22 46,36" stroke="#e50f4a" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          <polyline points="16,32 32,16 48,32" stroke="#e50f4a" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
         <span class="topbar__wordmark">Baseball Tier List Maker</span>
       </div>
