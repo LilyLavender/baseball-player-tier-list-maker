@@ -20,7 +20,6 @@ import {
   syncPoolFilterUI,
 } from "./components/poolFilters";
 import type { PoolFilterState } from "./components/poolFilters";
-import { bindPlayerSearch, renderPlayerSearch } from "./components/playerSearch";
 import { bindTierBoard, renderTierBoard, tierDropZoneIds } from "./components/tierBoard";
 import {
   initPoolSortable,
@@ -47,6 +46,7 @@ import { bindHistoryPanel, renderHistoryPanel } from "./components/historyPanel"
 import { qualifierFor, STAT_CATEGORIES } from "./data/statCategories";
 import { cloneDefaultTiers } from "./data/tiers";
 import type { TierDefinition } from "./data/tiers";
+import { TIER_COLOR_PALETTE } from "./data/tierColors";
 import { describeQuery } from "./utils/queryLabel";
 import { exportTierListAsPng } from "./export/exportImage";
 import { generateAutoTiers } from "./tiering/autoTier";
@@ -123,7 +123,8 @@ function bindTierBoardCallbacks(): void {
     onAddTier: () => {
       const poolIds = collectPoolPlayerIds();
       const tierIds = collectTierPlayerIds(currentTiers.length);
-      currentTiers.push({ label: "New", color: "#4a5568" });
+      const nextColor = TIER_COLOR_PALETTE[currentTiers.length % TIER_COLOR_PALETTE.length];
+      currentTiers.push({ label: "New", color: nextColor });
       tierIds.push([]);
       rerenderBoardAndPool(tierIds.map(playersFromIds), playersFromIds(poolIds));
     },
@@ -146,7 +147,6 @@ function renderPoolSection(poolContent: string): string {
       <div class="pool__header">
         <h2 class="pool__heading">Unranked pool <span id="pool-count" class="pool__count"></span></h2>
         <div class="pool__header-actions">
-          ${renderPlayerSearch()}
           ${renderPoolFilters(teams, countryFilterOptions)}
           <button id="return-all-to-pool" type="button" class="pool__clear">${icon("undo")} Return all to pool</button>
           <button id="clear-pool" type="button" class="pool__clear">${icon("clear_all")} Clear pool</button>
@@ -281,18 +281,18 @@ function bindClearPoolButton(): void {
     const emptyTiers = currentTiers.map(() => []);
     rerenderBoardAndPool(emptyTiers, playersFromIds([...poolIds, ...tierIds]));
   });
+}
 
-  bindPlayerSearch((player) => {
-    rememberPlayers([player]);
-    const existingIds = new Set([
-      ...collectPoolPlayerIds(),
-      ...collectTierPlayerIds(currentTiers.length).flat(),
-    ]);
-    if (existingIds.has(player.id)) return;
+function onSearchAddPlayer(player: PoolPlayer): void {
+  rememberPlayers([player]);
+  const existingIds = new Set([
+    ...collectPoolPlayerIds(),
+    ...collectTierPlayerIds(currentTiers.length).flat(),
+  ]);
+  if (existingIds.has(player.id)) return;
 
-    const poolPlayers = playersFromIds(collectPoolPlayerIds());
-    setPoolContent(renderPlayerPool([...poolPlayers, player]));
-  });
+  const poolPlayers = playersFromIds(collectPoolPlayerIds());
+  setPoolContent(renderPlayerPool([...poolPlayers, player]));
 }
 
 function rerenderBoardAndPool(tierPlayers: PoolPlayer[][], poolPlayers: PoolPlayer[]): void {
@@ -508,8 +508,16 @@ function setPoolContent(html: string): void {
   applyPoolFilterToDom();
 }
 
+/** Merges newly-fetched players into whatever's already in the pool, skipping anyone already in the pool or a tier. */
+function mergeIntoPool(newPlayers: PoolPlayer[], existingPoolIds: number[]): PoolPlayer[] {
+  const existingIds = new Set([...existingPoolIds, ...collectTierPlayerIds(currentTiers.length).flat()]);
+  const toAdd = newPlayers.filter((p) => !existingIds.has(p.id));
+  return [...playersFromIds(existingPoolIds), ...toAdd];
+}
+
 async function loadTeamPool(teamId: number | "all", season: number): Promise<void> {
   currentQuery = { kind: "team", teamId, season };
+  const existingPoolIds = collectPoolPlayerIds();
   setPoolContent(
     `<p class="pool__placeholder pool__placeholder--loading">${renderSpinner("Loading", "lg")}<span>${teamId === "all" ? "Loading all rosters…" : "Loading roster…"}</span></p>`,
   );
@@ -526,7 +534,7 @@ async function loadTeamPool(teamId: number | "all", season: number): Promise<voi
   }
 
   rememberPlayers(players);
-  setPoolContent(renderPlayerPool(players));
+  setPoolContent(renderPlayerPool(mergeIntoPool(players, existingPoolIds)));
 }
 
 async function loadStatPool(params: StatQueryParams): Promise<void> {
@@ -542,6 +550,7 @@ async function loadStatPool(params: StatQueryParams): Promise<void> {
     season,
     limit: params.limit,
   };
+  const existingPoolIds = collectPoolPlayerIds();
   setPoolContent(
     `<p class="pool__placeholder pool__placeholder--loading">${renderSpinner("Loading", "lg")}<span>${params.scope === "career" ? "Loading career leaders…" : "Loading leaders…"}</span></p>`,
   );
@@ -570,7 +579,7 @@ async function loadStatPool(params: StatQueryParams): Promise<void> {
   }
 
   rememberPlayers(players);
-  setPoolContent(renderPlayerPool(players));
+  setPoolContent(renderPlayerPool(mergeIntoPool(players, existingPoolIds)));
 }
 
 function applyAutoTiers(strategy: AutoTierStrategy): void {
@@ -606,6 +615,7 @@ function bindQueryBuilderCallbacks(): void {
     onApplyStat: (params) => {
       void loadStatPool(params);
     },
+    onSearchAdd: onSearchAddPlayer,
   });
 }
 

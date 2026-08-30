@@ -6,6 +6,8 @@ import { bindComboBox, getComboBoxValue, renderComboBox, setComboBoxOptions } fr
 import type { ComboBoxOption } from "./comboBox";
 import { bindConditionalField } from "../utils/conditionalField";
 import { icon } from "../utils/icon";
+import { bindPlayerSearch, renderPlayerSearch } from "./playerSearch";
+import type { PoolPlayer } from "../types/mlb";
 
 export interface StatQueryParams {
   statCategoryId: string;
@@ -20,6 +22,7 @@ export interface StatQueryParams {
 export interface QueryBuilderCallbacks {
   onApplyTeam: (teamId: number | "all", season: number) => void;
   onApplyStat: (params: StatQueryParams) => void;
+  onSearchAdd: (player: PoolPlayer) => void;
 }
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -51,7 +54,7 @@ export function renderQueryBuilder(
         role="tab"
         aria-selected="true"
         aria-controls="qb-panel-team"
-      >${icon("groups")} By Team</button>
+      >${icon("groups")} Teams</button>
       <button
         type="button"
         id="qb-tab-stat"
@@ -60,7 +63,16 @@ export function renderQueryBuilder(
         aria-selected="false"
         aria-controls="qb-panel-stat"
         tabindex="-1"
-      >${icon("leaderboard")} By Leaders</button>
+      >${icon("leaderboard")} Leaders</button>
+      <button
+        type="button"
+        id="qb-tab-search"
+        class="query-builder__tab"
+        role="tab"
+        aria-selected="false"
+        aria-controls="qb-panel-search"
+        tabindex="-1"
+      >${icon("search")} Search</button>
     </div>
 
     <div id="qb-panel-team" class="query-builder__panel" role="tabpanel" aria-labelledby="qb-tab-team">
@@ -119,6 +131,10 @@ export function renderQueryBuilder(
         <input id="qb-stat-min-qualifier" type="number" placeholder="No minimum" step="any" />
       </label>
       <button id="qb-stat-apply" type="button">${icon("group_add")} Add to Pool</button>
+    </div>
+
+    <div id="qb-panel-search" class="query-builder__panel" role="tabpanel" aria-labelledby="qb-tab-search" hidden>
+      ${renderPlayerSearch()}
     </div>
   `;
 }
@@ -217,4 +233,6 @@ export function bindQueryBuilder(teams: Team[], callbacks: QueryBuilderCallbacks
         statMinQualifierInput.value === "" ? undefined : Number(statMinQualifierInput.value),
     });
   });
+
+  bindPlayerSearch(callbacks.onSearchAdd);
 }

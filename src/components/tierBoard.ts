@@ -5,6 +5,7 @@ import type { AutoTierStrategy } from "../tiering/autoTier";
 import { bindConditionalField } from "../utils/conditionalField";
 import { icon } from "../utils/icon";
 import { escapeHtml } from "../utils/escapeHtml";
+import { TIER_COLOR_PALETTE } from "../data/tierColors";
 
 const TIER_NAME_MAX_FONT_REM = 1.7;
 const TIER_NAME_MIN_FONT_REM = 0.85;
@@ -73,15 +74,36 @@ export function renderTierBoard(tiers: TierDefinition[], tierPlayers: PoolPlayer
                 <span>Name</span>
                 <input type="text" class="tier-row__settings-name" data-tier-index="${index}" value="${safeLabel}" />
               </label>
-              <label class="tier-row__settings-field">
+              <div class="tier-row__settings-field">
                 <span>Color</span>
-                <input type="color" class="tier-row__settings-color" data-tier-index="${index}" value="${tier.color}" />
-              </label>
+                <div class="tier-row__color-swatches" data-tier-index="${index}">
+                  ${TIER_COLOR_PALETTE.map(
+                    (color) => `
+                      <button
+                        type="button"
+                        class="tier-row__color-swatch${color.toLowerCase() === tier.color.toLowerCase() ? " tier-row__color-swatch--active" : ""}"
+                        data-tier-index="${index}"
+                        data-color="${color}"
+                        style="--swatch-color: ${color}"
+                        aria-label="Set tier color to ${color}"
+                        aria-pressed="${color.toLowerCase() === tier.color.toLowerCase()}"
+                      ></button>
+                    `,
+                  ).join("")}
+                  <label class="tier-row__color-swatch tier-row__color-swatch--custom" title="Custom color">
+                    <input type="color" class="tier-row__settings-color" data-tier-index="${index}" value="${tier.color}" />
+                  </label>
+                </div>
+              </div>
               <div class="tier-row__settings-row">
                 <button type="button" class="tier-row__settings-btn tier-row__move-btn" data-action="up" data-tier-index="${index}">${icon("arrow_upward")} Move up</button>
                 <button type="button" class="tier-row__settings-btn tier-row__move-btn" data-action="down" data-tier-index="${index}">${icon("arrow_downward")} Move down</button>
               </div>
-              <button type="button" class="tier-row__settings-delete" data-action="delete" data-tier-index="${index}">${icon("delete")} Delete tier</button>
+              ${
+                tiers.length > 1
+                  ? `<button type="button" class="tier-row__settings-delete" data-action="delete" data-tier-index="${index}">${icon("delete")} Delete tier</button>`
+                  : ""
+              }
             </div>
           </div>
           <div id="tier-cards-${index}" class="tier-row__cards sortable-zone" role="list" aria-label="Players in tier ${safeLabel}">${cards}</div>
@@ -206,10 +228,35 @@ function bindTierMoveAndDelete(callbacks: TierBoardCallbacks): void {
   });
 }
 
+function setActiveSwatch(index: number, color: string): void {
+  document
+    .querySelectorAll<HTMLButtonElement>(`.tier-row__color-swatch[data-tier-index="${index}"]`)
+    .forEach((swatch) => {
+      const active = swatch.dataset.color?.toLowerCase() === color.toLowerCase();
+      swatch.classList.toggle("tier-row__color-swatch--active", active);
+      swatch.setAttribute("aria-pressed", String(active));
+    });
+}
+
 function bindTierSettingsFields(callbacks: TierBoardCallbacks): void {
   document.querySelectorAll<HTMLInputElement>(".tier-row__settings-color").forEach((input) => {
     input.addEventListener("input", () => {
-      callbacks.onRecolor(Number(input.dataset.tierIndex), input.value);
+      const index = Number(input.dataset.tierIndex);
+      setActiveSwatch(index, input.value);
+      callbacks.onRecolor(index, input.value);
+    });
+  });
+
+  document.querySelectorAll<HTMLButtonElement>(".tier-row__color-swatch[data-color]").forEach((swatch) => {
+    swatch.addEventListener("click", () => {
+      const index = Number(swatch.dataset.tierIndex);
+      const color = swatch.dataset.color!;
+      setActiveSwatch(index, color);
+      const colorInput = document.querySelector<HTMLInputElement>(
+        `.tier-row__settings-color[data-tier-index="${index}"]`,
+      );
+      if (colorInput) colorInput.value = color;
+      callbacks.onRecolor(index, color);
     });
   });
 
