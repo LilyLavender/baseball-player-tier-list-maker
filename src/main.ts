@@ -57,7 +57,7 @@ import { generateAutoTiers } from "./tiering/autoTier";
 import type { AutoTierStrategy } from "./tiering/autoTier";
 import type { PoolPlayer, Team } from "./types/mlb";
 import { renderSpinner } from "./components/spinner";
-import { icon } from "./utils/icon";
+import { icon, xIcon } from "./utils/icon";
 
 applyTheme(loadThemePref());
 applyStatBadgePref(loadStatBadgePref());
@@ -152,6 +152,20 @@ function bindTierBoardCallbacks(): void {
       applyAutoTiers(strategy);
     },
   });
+}
+
+function renderSiteFooter(): string {
+  return `
+    <footer class="site-footer">
+      <span>Made by <a href="https://github.com/LilyLavender" target="_blank" rel="noopener noreferrer">Lily</a>!</span>
+      <span class="site-footer__sep"></span>
+      <span>Submit feedback in <a href="https://forms.gle/EeBaEhffVcmJPgtM9" target="_blank" rel="noopener noreferrer">the Google Form</a> or <a class="site-footer__icon-link" href="https://x.com/LilyLambda" target="_blank" rel="noopener noreferrer">${xIcon()} @LilyLambda</a></span>
+      <span class="site-footer__sep"></span>
+      <span>Support me on <a class="site-footer__icon-link" href="https://ko-fi.com/LilyLambda" target="_blank" rel="noopener noreferrer"><img src="./kofi-symbol.png" alt="" class="site-footer__kofi-icon" width="16" height="16" /> Ko-fi</a>!</span>
+      <span class="site-footer__sep"></span>
+      <span class="site-footer__disclaimer">Not affiliated with or endorsed by MLB, MLB Advanced Media, or any MLB team</span>
+    </footer>
+  `;
 }
 
 function renderPoolSection(poolContent: string): string {
@@ -337,6 +351,7 @@ function rerenderBoardAndPool(tierPlayers: PoolPlayer[][], poolPlayers: PoolPlay
   boardWrap.innerHTML = `
     ${renderTierBoard(currentTiers, tierPlayers, renderPoolActions())}
     ${renderPoolSection(renderPlayerPool(poolPlayers))}
+    ${renderSiteFooter()}
   `;
   initTierSortables(tierDropZoneIds(currentTiers.length));
   initPoolSortable();
@@ -434,6 +449,7 @@ function renderShell(
       <div class="board-wrap">
         ${renderTierBoard(currentTiers, tierPlayers, renderPoolActions())}
         ${renderPoolSection(poolContent)}
+        ${renderSiteFooter()}
       </div>
     </div>
   `;
