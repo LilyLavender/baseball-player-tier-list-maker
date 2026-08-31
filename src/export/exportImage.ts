@@ -21,28 +21,6 @@ function waitForImages(container: HTMLElement): Promise<void> {
   ).then(() => undefined);
 }
 
-/**
- * html2canvas doesn't reliably honor `object-fit: cover` (it tends to stretch the
- * image to fill the box instead of cropping), so we replicate cover manually with
- * exact pixel geometry, matching the "top center" object-position the live cards use.
- */
-function applyManualCover(img: HTMLImageElement): void {
-  const { naturalWidth, naturalHeight } = img;
-  const parent = img.parentElement;
-  if (!naturalWidth || !naturalHeight || !parent) return;
-
-  const boxWidth = parent.clientWidth;
-  const boxHeight = parent.clientHeight;
-  const scale = Math.max(boxWidth / naturalWidth, boxHeight / naturalHeight);
-  const width = naturalWidth * scale;
-  const height = naturalHeight * scale;
-
-  img.style.width = `${width}px`;
-  img.style.height = `${height}px`;
-  img.style.left = `${(boxWidth - width) / 2}px`;
-  img.style.top = "0px";
-}
-
 function slugify(title: string): string {
   return title
     .trim()
@@ -62,34 +40,48 @@ export async function exportTierListAsPng(
     color: { dark: palette.text, light: "#00000000" },
   });
 
+  // html-to-image serializes into an SVG <foreignObject> and derives its capture
+  // area from the node's on-screen position; a node pushed far off-screen (the old
+  // `left: -99999px` trick) renders blank (see bubkoo/html-to-image#460). Instead,
+  // keep the container pinned at (0, 0) so it stays in-bounds, and hide it visually
+  // with a zero-size, clipping host rather than by moving it off-canvas.
+  const captureHost = document.createElement("div");
+  captureHost.style.position = "fixed";
+  captureHost.style.top = "0";
+  captureHost.style.left = "0";
+  captureHost.style.width = "0";
+  captureHost.style.height = "0";
+  captureHost.style.overflow = "hidden";
+  captureHost.style.pointerEvents = "none";
+  document.body.appendChild(captureHost);
+
   const container = document.createElement("div");
   container.className = `export-snapshot export-snapshot--${options.theme}`;
-  container.style.position = "fixed";
-  container.style.left = "-99999px";
-  container.style.top = "0";
   container.style.background = palette.bg;
   container.style.color = palette.text;
   container.innerHTML = renderExportSnapshot(options, tiers, tierPlayers, qrDataUrl);
-  document.body.appendChild(container);
+  captureHost.appendChild(container);
 
   try {
     await import("../styles/export.css");
     await waitForImages(container);
     // Broken images call .remove() via inline onerror; give that a tick to settle.
     await new Promise((resolve) => setTimeout(resolve, 50));
+    await document.fonts.ready;
 
-    container
-      .querySelectorAll<HTMLImageElement>(".export-card img")
-      .forEach((img) => applyManualCover(img));
-
-    const { default: html2canvas } = await import("html2canvas");
-    const canvas = await html2canvas(container, {
+    const { toBlob } = await import("html-to-image");
+    const renderOptions = {
       backgroundColor: palette.bg,
-      useCORS: true,
-      scale: 2,
-    });
-
-    const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+      pixelRatio: 2,
+      cacheBust: true,
+    };
+    // html-to-image serializes the DOM into an SVG <foreignObject>, which the browser
+    // treats as its own document: @font-face fonts don't reliably resolve there before
+    // the first capture, which can drop content and leave stray font-embedding state
+    // behind. Priming with a throwaway call first (then discarding it) lets the library
+    // finish embedding fonts before the real capture, which renders cleanly.
+    await toBlob(container, renderOptions);
+    const blob = await toBlob(container, renderOptions);
     if (!blob) return;
 
     const url = URL.createObjectURL(blob);
@@ -99,6 +91,6 @@ export async function exportTierListAsPng(
     link.click();
     URL.revokeObjectURL(url);
   } finally {
-    container.remove();
+    captureHost.remove();
   }
 }

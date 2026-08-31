@@ -70,16 +70,17 @@
   height: 84px;
   overflow: hidden;
   border-radius: 3px;
-  border: 1px solid #dddddd;
 }
 
 .export-card img {
   display: block;
   position: absolute;
-  top: 0;
+  top: -10%;
   left: 0;
   width: 100%;
-  height: 100%;
+  height: 130%;
+  object-fit: cover;
+  object-position: top center;
   background: #acacb2;
 }
 
@@ -101,9 +102,9 @@
 
 .export-card__name {
   position: absolute;
-  left: -1px;
-  right: -1px;
-  bottom: -1px;
+  left: 0;
+  right: 0;
+  bottom: 0;
   padding: 2px 4px 3px;
   background: linear-gradient(to top, rgba(20, 33, 61, 0.92), rgba(20, 33, 61, 0));
   color: #f5f6f2;
