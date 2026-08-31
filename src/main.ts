@@ -13,6 +13,7 @@ import type { StatQueryParams } from "./components/queryBuilder";
 import { renderPlayerPool } from "./components/playerPool";
 import {
   bindPoolFilters,
+  collectStatCategoryIds,
   emptyPoolFilterState,
   isPoolFilterActive,
   matchesPoolFilter,
@@ -69,7 +70,7 @@ let currentListId: string | null = null;
 let currentTiers: TierDefinition[] = cloneDefaultTiers();
 let teams: Team[] = [];
 let currentPoolFilter: PoolFilterState = emptyPoolFilterState();
-let currentStatValues = new Map<number, number>();
+let currentStatValuesByCategory = new Map<string, Map<number, number>>();
 const teamStatCache = new Map<string, Map<number, number>>();
 let activeCountryByPlayerId = new Map<number, string>();
 
@@ -173,11 +174,13 @@ function renderPoolActions(): PoolActionsHtml {
   };
 }
 
-async function ensureStatValues(
-  statCategoryId: string,
-  players: PoolPlayer[],
-  qualifiedOnly: boolean,
-): Promise<Map<number, number>> {
+/**
+ * Fetches values for one stat category, automatically applying that category's own qualified-
+ * player minimum (`StatCategory.qualified`, e.g. batting average or ERA) rather than exposing a
+ * manual toggle, matching the smart default already used for the query builder's own leaderboard
+ * query.
+ */
+async function ensureStatValues(statCategoryId: string, players: PoolPlayer[]): Promise<Map<number, number>> {
   const stat = STAT_CATEGORIES.find((s) => s.id === statCategoryId);
   if (!stat) return new Map();
 
@@ -192,11 +195,11 @@ async function ensureStatValues(
       const [teamIdStr, seasonStr] = pair.split(":");
       const teamId = Number(teamIdStr);
       const season = Number(seasonStr);
-      const cacheKey = `${statCategoryId}:${teamId}:${season}:${qualifiedOnly}`;
+      const cacheKey = `${statCategoryId}:${teamId}:${season}`;
       if (teamStatCache.has(cacheKey)) return;
 
       try {
-        const raw = await fetchTeamSeasonStats(teamId, season, stat.group, qualifiedOnly);
+        const raw = await fetchTeamSeasonStats(teamId, season, stat.group, stat.qualified);
         const values = new Map<number, number>();
         for (const [playerId, statLine] of raw) {
           const value = parseFloat(String(statLine[stat.statKey]));
@@ -212,11 +215,22 @@ async function ensureStatValues(
   const merged = new Map<number, number>();
   for (const pair of teamSeasonPairs) {
     const [teamIdStr, seasonStr] = pair.split(":");
-    const values = teamStatCache.get(`${statCategoryId}:${teamIdStr}:${seasonStr}:${qualifiedOnly}`);
+    const values = teamStatCache.get(`${statCategoryId}:${teamIdStr}:${seasonStr}`);
     if (!values) continue;
     for (const [playerId, value] of values) merged.set(playerId, value);
   }
   return merged;
+}
+
+/** Fetches values for several stat categories in parallel, keyed by stat category id. */
+async function ensureStatValuesForCategories(
+  statCategoryIds: string[],
+  players: PoolPlayer[],
+): Promise<Map<string, Map<number, number>>> {
+  const entries = await Promise.all(
+    statCategoryIds.map(async (id) => [id, await ensureStatValues(id, players)] as const),
+  );
+  return new Map(entries);
 }
 
 /** Fetches and caches birth country for any pool player that doesn't have it yet, in place. */
@@ -236,7 +250,7 @@ function applyPoolFilterToDom(): void {
   cards.forEach((card) => {
     const id = Number(card.dataset.playerId);
     const player = playersById.get(id);
-    const visible = !player || matchesPoolFilter(player, currentPoolFilter, currentStatValues);
+    const visible = !player || matchesPoolFilter(player, currentPoolFilter, currentStatValuesByCategory);
     card.classList.toggle("player-card--filtered-out", !visible);
   });
   updatePoolCount();
@@ -250,10 +264,11 @@ function bindPoolFilterControls(): void {
       syncPoolFilterUI(currentPoolFilter);
       const poolPlayers = playersFromIds(collectPoolPlayerIds());
 
+      const statCategoryIds = collectStatCategoryIds(state.statExpr);
       const statValuesPromise =
-        state.statCategoryId && state.statValue !== null
-          ? ensureStatValues(state.statCategoryId, poolPlayers, state.qualifiedOnly)
-          : Promise.resolve(new Map<number, number>());
+        statCategoryIds.length > 0
+          ? ensureStatValuesForCategories(statCategoryIds, poolPlayers)
+          : Promise.resolve(new Map<string, Map<number, number>>());
       const birthCountriesPromise =
         state.birthCountries.size > 0 ? ensureBirthCountries(poolPlayers) : Promise.resolve();
 
@@ -265,7 +280,7 @@ function bindPoolFilterControls(): void {
 
       void Promise.all([statValuesPromise, birthCountriesPromise])
         .then(([values]) => {
-          currentStatValues = values;
+          currentStatValuesByCategory = values;
           applyPoolFilterToDom();
           if (statusEl) statusEl.textContent = "";
         })
@@ -279,7 +294,7 @@ function bindPoolFilterControls(): void {
     },
     () => {
       currentPoolFilter = emptyPoolFilterState();
-      currentStatValues = new Map();
+      currentStatValuesByCategory = new Map();
       syncPoolFilterUI(currentPoolFilter);
       applyPoolFilterToDom();
     },
@@ -457,7 +472,7 @@ function renderShell(
     currentQuery = null;
     currentTiers = cloneDefaultTiers();
     currentPoolFilter = emptyPoolFilterState();
-    currentStatValues = new Map();
+    currentStatValuesByCategory = new Map();
     setLastOpenedId(null);
     renderShell(renderQueryBuilder(teams), `<p class="pool__placeholder">Players will appear here once a query runs.</p>`);
     bindQueryBuilderCallbacks();
@@ -692,7 +707,7 @@ async function openSavedList(id: string): Promise<void> {
   currentListId = list.id;
   currentTiers = list.tiers?.length ? list.tiers.map((t) => ({ ...t })) : cloneDefaultTiers();
   currentPoolFilter = emptyPoolFilterState();
-  currentStatValues = new Map();
+  currentStatValuesByCategory = new Map();
   setLastOpenedId(list.id);
 
   const poolPlayers = playersFromIds(list.poolPlayerIds);

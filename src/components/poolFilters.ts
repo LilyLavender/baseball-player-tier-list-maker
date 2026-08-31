@@ -4,7 +4,6 @@ import { statOptions } from "../data/statCategories";
 import { continentForCountry, flagForCountry } from "../data/countryFlags";
 import { icon } from "../utils/icon";
 import { escapeHtml } from "../utils/escapeHtml";
-import { renderToggleSwitch } from "../utils/toggleSwitch";
 
 /** A two-way player's `positionAbbreviation` is just "TWP", so treat them as playing both. */
 const TWO_WAY_SPECIFIC_POSITIONS = ["P", "DH"];
@@ -15,14 +14,109 @@ const POSITION_GROUPS: { label: string; positions: string[] }[] = [
   { label: "Other", positions: ["C", "DH", "P", "TWP"] },
 ];
 
+export type StatComparator = ">=" | "<=";
+
+export interface StatCondition {
+  kind: "condition";
+  id: string;
+  /** null until the user picks a stat for a newly added condition row. */
+  statCategoryId: string | null;
+  comparator: StatComparator;
+  value: number | null;
+}
+
+export interface StatGroup {
+  kind: "group";
+  id: string;
+  operator: "AND" | "OR";
+  children: StatExpr[];
+}
+
+export type StatExpr = StatCondition | StatGroup;
+
+let statNodeIdCounter = 0;
+function nextStatNodeId(): string {
+  return `sn-${++statNodeIdCounter}`;
+}
+
+export function makeStatCondition(): StatCondition {
+  return { kind: "condition", id: nextStatNodeId(), statCategoryId: null, comparator: ">=", value: null };
+}
+
+export function makeStatGroup(operator: "AND" | "OR" = "AND", children: StatExpr[] = []): StatGroup {
+  return { kind: "group", id: nextStatNodeId(), operator, children };
+}
+
+function cloneStatExpr(expr: StatExpr): StatExpr {
+  return expr.kind === "condition" ? { ...expr } : { ...expr, children: expr.children.map(cloneStatExpr) };
+}
+
+/**
+ * Drops incomplete conditions (no stat picked, or no value entered) and groups left empty as a
+ * result, so a half-built tree left over from editing doesn't affect matching or fetching. Never
+ * returns null for the root: an entirely-pruned tree becomes an empty group, meaning "no stat
+ * filter".
+ */
+function pruneStatExpr(expr: StatExpr): StatExpr | null {
+  if (expr.kind === "condition") {
+    return expr.statCategoryId !== null && expr.value !== null ? expr : null;
+  }
+  const children = expr.children.map(pruneStatExpr).filter((child): child is StatExpr => child !== null);
+  return children.length === 0 ? null : { ...expr, children };
+}
+
+function pruneStatRoot(root: StatGroup): StatGroup {
+  const pruned = pruneStatExpr(root);
+  return (pruned as StatGroup | null) ?? makeStatGroup(root.operator, []);
+}
+
+function statExprHasCondition(expr: StatExpr): boolean {
+  if (expr.kind === "condition") return expr.statCategoryId !== null && expr.value !== null;
+  return expr.children.some(statExprHasCondition);
+}
+
+/** Distinct stat category ids referenced anywhere in the tree, for fetching. */
+export function collectStatCategoryIds(expr: StatExpr): string[] {
+  const ids = new Set<string>();
+  const visit = (node: StatExpr): void => {
+    if (node.kind === "condition") {
+      if (node.statCategoryId !== null) ids.add(node.statCategoryId);
+    } else {
+      node.children.forEach(visit);
+    }
+  };
+  visit(expr);
+  return Array.from(ids);
+}
+
+/**
+ * True if `player` should be shown given `statValuesByCategory` (a map from stat category id to
+ * per-player values for that category). A condition whose value is missing for this player fails
+ * just that condition rather than the whole tree, so it can still be routed around by an
+ * enclosing OR.
+ */
+export function evaluateStatExpr(
+  expr: StatExpr,
+  playerId: number,
+  statValuesByCategory: Map<string, Map<number, number>>,
+): boolean {
+  if (expr.kind === "condition") {
+    if (expr.statCategoryId === null || expr.value === null) return true;
+    const value = statValuesByCategory.get(expr.statCategoryId)?.get(playerId);
+    if (value === undefined) return false;
+    return expr.comparator === ">=" ? value >= expr.value : value <= expr.value;
+  }
+  if (expr.children.length === 0) return true;
+  return expr.operator === "AND"
+    ? expr.children.every((child) => evaluateStatExpr(child, playerId, statValuesByCategory))
+    : expr.children.some((child) => evaluateStatExpr(child, playerId, statValuesByCategory));
+}
+
 export interface PoolFilterState {
   teamIds: Set<number>;
   specificPositions: Set<string>;
   birthCountries: Set<string>;
-  statCategoryId: string | null;
-  comparator: ">=" | "<=";
-  statValue: number | null;
-  qualifiedOnly: boolean;
+  statExpr: StatGroup;
 }
 
 export function emptyPoolFilterState(): PoolFilterState {
@@ -30,10 +124,7 @@ export function emptyPoolFilterState(): PoolFilterState {
     teamIds: new Set(),
     specificPositions: new Set(),
     birthCountries: new Set(),
-    statCategoryId: null,
-    comparator: ">=",
-    statValue: null,
-    qualifiedOnly: false,
+    statExpr: makeStatGroup("AND", []),
   };
 }
 
@@ -47,7 +138,7 @@ export function poolFilterActiveCount(state: PoolFilterState): number {
   if (state.teamIds.size > 0) count++;
   if (state.specificPositions.size > 0) count++;
   if (state.birthCountries.size > 0) count++;
-  if (state.statCategoryId !== null) count++;
+  if (statExprHasCondition(state.statExpr)) count++;
   return count;
 }
 
@@ -59,7 +150,7 @@ export function poolFilterActiveCount(state: PoolFilterState): number {
 export function matchesPoolFilter(
   player: PoolPlayer,
   state: PoolFilterState,
-  statValues: Map<number, number>,
+  statValuesByCategory: Map<string, Map<number, number>>,
 ): boolean {
   if (state.teamIds.size > 0 && (player.teamId === undefined || !state.teamIds.has(player.teamId))) {
     return false;
@@ -78,10 +169,8 @@ export function matchesPoolFilter(
   ) {
     return false;
   }
-  if (state.statCategoryId !== null && state.statValue !== null) {
-    const value = statValues.get(player.id);
-    if (value === undefined) return false;
-    return state.comparator === ">=" ? value >= state.statValue : value <= state.statValue;
+  if (state.statExpr.children.length > 0 && !evaluateStatExpr(state.statExpr, player.id, statValuesByCategory)) {
+    return false;
   }
   return true;
 }
@@ -262,15 +351,292 @@ function renderPositionPicker(): string {
 
 let filtersOpen = false;
 
+/** Whether the collapsible "Advanced stat filter" section is expanded. Collapsed by default so
+ * the popover stays compact for the common case of no stat filter at all. */
+let statAdvancedOpen = false;
+
+/**
+ * The stat tree currently being edited in the popover. Unlike the team/position/country
+ * pickers (which read `aria-pressed` off a fixed set of buttons at Apply time), the stat tree's
+ * DOM shape itself changes as groups and conditions are added or removed, so it's modeled as
+ * real state that drives re-rendering instead. Reset from the applied `PoolFilterState.statExpr`
+ * whenever the popover's contents are resynced (see `syncPoolFilterUI`), so edits are local to
+ * the popover until Apply.
+ */
+let editableStatExpr: StatGroup = makeStatGroup("AND", []);
+
+function findStatGroup(root: StatGroup, id: string): StatGroup | null {
+  if (root.id === id) return root;
+  for (const child of root.children) {
+    if (child.kind === "group") {
+      const found = findStatGroup(child, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function findStatParentOf(root: StatGroup, childId: string): StatGroup | null {
+  for (const child of root.children) {
+    if (child.id === childId) return root;
+    if (child.kind === "group") {
+      const found = findStatParentOf(child, childId);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function findStatCondition(root: StatGroup, id: string): StatCondition | null {
+  for (const child of root.children) {
+    if (child.kind === "condition") {
+      if (child.id === id) return child;
+    } else {
+      const found = findStatCondition(child, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function addStatConditionTo(groupId: string): void {
+  findStatGroup(editableStatExpr, groupId)?.children.push(makeStatCondition());
+}
+
+function addStatGroupTo(groupId: string): void {
+  findStatGroup(editableStatExpr, groupId)?.children.push(makeStatGroup("AND", []));
+}
+
+function removeStatNode(nodeId: string): void {
+  const parent = findStatParentOf(editableStatExpr, nodeId);
+  if (!parent) return;
+  parent.children = parent.children.filter((child) => child.id !== nodeId);
+}
+
+function setStatGroupOperator(groupId: string, operator: "AND" | "OR"): void {
+  const group = findStatGroup(editableStatExpr, groupId);
+  if (group) group.operator = operator;
+}
+
+function setStatConditionField(
+  conditionId: string,
+  patch: Partial<Pick<StatCondition, "statCategoryId" | "comparator" | "value">>,
+): void {
+  const condition = findStatCondition(editableStatExpr, conditionId);
+  if (condition) Object.assign(condition, patch);
+}
+
+function renderStatExprNode(expr: StatExpr, isRoot: boolean): string {
+  if (expr.kind === "condition") {
+    const statOpts = statOptions()
+      .map(
+        (opt) =>
+          `<option value="${opt.value}"${opt.value === expr.statCategoryId ? " selected" : ""}>${escapeHtml(opt.label)}</option>`,
+      )
+      .join("");
+    return `
+      <div class="pool-filters__stat-condition" data-node-id="${expr.id}">
+        <select class="pool-filters__stat-condition-stat" data-node-id="${expr.id}" data-field="stat">
+          <option value="">Choose stat…</option>
+          ${statOpts}
+        </select>
+        <select class="pool-filters__stat-condition-comparator" data-node-id="${expr.id}" data-field="comparator">
+          <option value=">="${expr.comparator === ">=" ? " selected" : ""}>at least</option>
+          <option value="<="${expr.comparator === "<=" ? " selected" : ""}>at most</option>
+        </select>
+        <input
+          type="number"
+          step="any"
+          placeholder="value"
+          class="pool-filters__stat-condition-value"
+          data-node-id="${expr.id}"
+          data-field="value"
+          value="${expr.value === null ? "" : expr.value}"
+        />
+        <button
+          type="button"
+          class="pool-filters__stat-remove"
+          data-remove-node="${expr.id}"
+          title="Remove condition"
+          aria-label="Remove condition"
+        >${icon("close")}</button>
+      </div>
+    `;
+  }
+
+  const childrenHtml = expr.children.length
+    ? expr.children
+        .map(
+          (child, i) => `
+            ${i > 0 ? `<div class="pool-filters__stat-group-op-label">${expr.operator}</div>` : ""}
+            ${renderStatExprNode(child, false)}
+          `,
+        )
+        .join("")
+    : `<p class="pool-filters__stat-empty">No conditions yet.</p>`;
+
+  // AND/OR only matters, and is only shown, once there's more than one condition to combine.
+  const showOperatorToggle = expr.children.length > 1;
+  const showRemove = !isRoot;
+  const headerHtml =
+    showOperatorToggle || showRemove
+      ? `
+        <div class="pool-filters__stat-group-header">
+          ${
+            showOperatorToggle
+              ? `
+                <div class="pool-filters__stat-group-toggle" role="group">
+                  <button
+                    type="button"
+                    class="pool-filters__stat-op-btn${expr.operator === "AND" ? " pool-filters__stat-op-btn--active" : ""}"
+                    data-set-operator="${expr.id}"
+                    data-operator="AND"
+                  >AND</button>
+                  <button
+                    type="button"
+                    class="pool-filters__stat-op-btn${expr.operator === "OR" ? " pool-filters__stat-op-btn--active" : ""}"
+                    data-set-operator="${expr.id}"
+                    data-operator="OR"
+                  >OR</button>
+                </div>
+              `
+              : ""
+          }
+          ${
+            showRemove
+              ? `<button type="button" class="pool-filters__stat-remove" data-remove-node="${expr.id}" title="Remove group" aria-label="Remove group">${icon("close")}</button>`
+              : ""
+          }
+        </div>
+      `
+      : "";
+
+  return `
+    <div class="pool-filters__stat-group" data-node-id="${expr.id}">
+      ${headerHtml}
+      <div class="pool-filters__stat-group-children">${childrenHtml}</div>
+      <div class="pool-filters__stat-group-actions">
+        <button type="button" class="pool-filters__stat-add-btn" data-add-condition="${expr.id}">${icon("add")} Condition</button>
+        <button type="button" class="pool-filters__stat-add-btn" data-add-group="${expr.id}">${icon("add")} Group</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderStatExprTree(): string {
+  return renderStatExprNode(editableStatExpr, true);
+}
+
+/** Number of condition rows currently in the tree, filled in or not, for the toggle's label. */
+function countStatConditions(expr: StatExpr): number {
+  if (expr.kind === "condition") return 1;
+  return expr.children.reduce((sum, child) => sum + countStatConditions(child), 0);
+}
+
+function statAdvancedToggleLabel(): string {
+  const count = countStatConditions(editableStatExpr);
+  return count > 0 ? `Advanced stat filter (${count})` : "Advanced stat filter";
+}
+
+function updateStatAdvancedToggle(): void {
+  const toggle = document.querySelector<HTMLButtonElement>("#pf-stat-advanced-toggle");
+  const label = document.querySelector<HTMLSpanElement>("#pf-stat-advanced-toggle-label");
+  const wrapper = document.querySelector<HTMLDivElement>("#pf-stat-advanced");
+  const chevron = document.querySelector<HTMLSpanElement>("#pf-stat-advanced-toggle-chevron");
+  if (!toggle || !label || !wrapper || !chevron) return;
+  label.textContent = statAdvancedToggleLabel();
+  toggle.setAttribute("aria-expanded", String(statAdvancedOpen));
+  wrapper.hidden = !statAdvancedOpen;
+  chevron.textContent = statAdvancedOpen ? "expand_less" : "expand_more";
+}
+
+function rerenderStatExprTree(): void {
+  const container = document.querySelector<HTMLDivElement>("#pf-stat-tree");
+  if (!container) return;
+  container.innerHTML = renderStatExprTree();
+  updateStatAdvancedToggle();
+}
+
+function bindStatExprTree(): void {
+  const container = document.querySelector<HTMLDivElement>("#pf-stat-tree");
+  if (!container) return;
+
+  container.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement;
+
+    const addCondition = target.closest<HTMLButtonElement>("[data-add-condition]");
+    if (addCondition) {
+      addStatConditionTo(addCondition.dataset.addCondition!);
+      rerenderStatExprTree();
+      return;
+    }
+    const addGroup = target.closest<HTMLButtonElement>("[data-add-group]");
+    if (addGroup) {
+      addStatGroupTo(addGroup.dataset.addGroup!);
+      rerenderStatExprTree();
+      return;
+    }
+    const removeBtn = target.closest<HTMLButtonElement>("[data-remove-node]");
+    if (removeBtn) {
+      removeStatNode(removeBtn.dataset.removeNode!);
+      rerenderStatExprTree();
+      return;
+    }
+    const opBtn = target.closest<HTMLButtonElement>("[data-set-operator]");
+    if (opBtn) {
+      setStatGroupOperator(opBtn.dataset.setOperator!, opBtn.dataset.operator === "OR" ? "OR" : "AND");
+      rerenderStatExprTree();
+    }
+  });
+
+  container.addEventListener("change", (event) => {
+    const target = event.target as HTMLElement;
+    const nodeId = target.dataset.nodeId;
+    const field = target.dataset.field;
+    if (!nodeId || !field) return;
+
+    if (field === "stat") {
+      setStatConditionField(nodeId, { statCategoryId: (target as HTMLSelectElement).value || null });
+    } else if (field === "comparator") {
+      setStatConditionField(nodeId, { comparator: (target as HTMLSelectElement).value === "<=" ? "<=" : ">=" });
+    } else if (field === "value") {
+      const raw = (target as HTMLInputElement).value;
+      setStatConditionField(nodeId, { value: raw === "" ? null : Number(raw) });
+    }
+    // Deliberately not re-rendering here: rebuilding the subtree on every keystroke would steal
+    // focus from the input mid-edit. The tree's shape only changes via add/remove/operator
+    // clicks, which do re-render above.
+  });
+}
+
+function bindStatAdvancedToggle(): void {
+  const toggle = document.querySelector<HTMLButtonElement>("#pf-stat-advanced-toggle");
+  if (!toggle) return;
+  toggle.addEventListener("click", () => {
+    statAdvancedOpen = !statAdvancedOpen;
+    if (statAdvancedOpen) {
+      // Opening onto an empty tree (e.g. the very first time) starts with one condition row
+      // rather than making the user click "+ Condition" for the common single-condition case.
+      if (editableStatExpr.children.length === 0) {
+        addStatConditionTo(editableStatExpr.id);
+      }
+    } else {
+      // Closing without ever picking a stat for that seeded row should revert to "no filter"
+      // rather than leaving a phantom, incomplete condition that still shows "(1)" on the toggle.
+      const onlyChild = editableStatExpr.children.length === 1 ? editableStatExpr.children[0] : null;
+      if (onlyChild?.kind === "condition" && onlyChild.statCategoryId === null) {
+        editableStatExpr.children = [];
+      }
+    }
+    rerenderStatExprTree();
+  });
+}
+
 /**
  * `countries` should be the birth countries actually present among players currently in the
  * pool (not every country in MLB), so the grid only ever shows options that can match someone.
  */
 export function renderPoolFilters(teams: Team[], countries: string[] = []): string {
-  const statOpts = statOptions()
-    .map((opt) => `<option value="${opt.value}">${opt.label}</option>`)
-    .join("");
-
   return `
     <div class="pool-filters">
       <button
@@ -292,26 +658,22 @@ export function renderPoolFilters(teams: Team[], countries: string[] = []): stri
           ${renderCountryPicker(countries)}
         </div>
         <div class="pool-filters__row">
-          <label class="pool-filters__field pool-filters__field--checkbox pool-filters__field--qualified">
-            ${renderToggleSwitch("pf-qualified")}
-            Qualified only
-          </label>
-          <label class="pool-filters__field">
-            Stat
-            <select id="pf-stat">
-              <option value="">No stat filter</option>
-              ${statOpts}
-            </select>
-          </label>
-          <label class="pool-filters__field" id="pf-comparator-field">
-            <select id="pf-comparator">
-              <option value=">=">at least</option>
-              <option value="<=">at most</option>
-            </select>
-          </label>
-          <label class="pool-filters__field" id="pf-stat-value-field">
-            <input id="pf-stat-value" type="number" placeholder="value" step="any" />
-          </label>
+          <button
+            type="button"
+            id="pf-stat-advanced-toggle"
+            class="pool-filters__advanced-toggle"
+            aria-expanded="${statAdvancedOpen}"
+            aria-controls="pf-stat-advanced"
+          >
+            ${icon("tune")}
+            <span id="pf-stat-advanced-toggle-label">${statAdvancedToggleLabel()}</span>
+            <span id="pf-stat-advanced-toggle-chevron" class="material-symbols-outlined" aria-hidden="true">${
+              statAdvancedOpen ? "expand_less" : "expand_more"
+            }</span>
+          </button>
+        </div>
+        <div id="pf-stat-advanced" class="pool-filters__stat-advanced"${statAdvancedOpen ? "" : " hidden"}>
+          <div id="pf-stat-tree" class="pool-filters__stat-tree">${renderStatExprTree()}</div>
         </div>
         <div class="pool-filters__row">
           <div class="pool-filters__actions">
@@ -353,13 +715,12 @@ export function refreshPoolFilterCountries(countries: string[]): void {
 }
 
 export function syncPoolFilterUI(state: PoolFilterState): void {
-  const statSelect = document.querySelector<HTMLSelectElement>("#pf-stat");
-  const comparatorSelect = document.querySelector<HTMLSelectElement>("#pf-comparator");
-  const statValueInput = document.querySelector<HTMLInputElement>("#pf-stat-value");
-  const qualifiedCheckbox = document.querySelector<HTMLInputElement>("#pf-qualified");
-  if (!statSelect || !comparatorSelect || !statValueInput || !qualifiedCheckbox) {
+  if (!document.querySelector<HTMLButtonElement>("#pf-stat-advanced-toggle")) {
     return;
   }
+
+  editableStatExpr = cloneStatExpr(state.statExpr) as StatGroup;
+  rerenderStatExprTree();
 
   document.querySelectorAll<HTMLButtonElement>("#pf-team-grid .pool-filters__team-btn").forEach((btn) => {
     const active = state.teamIds.has(Number(btn.dataset.teamId));
@@ -382,12 +743,6 @@ export function syncPoolFilterUI(state: PoolFilterState): void {
   });
   updateSelectAllButton('#pf-position-grid .pool-filters__position-btn', "pf-position-select-all");
 
-  statSelect.value = state.statCategoryId ?? "";
-  comparatorSelect.value = state.comparator;
-  statValueInput.value = state.statValue === null ? "" : String(state.statValue);
-  qualifiedCheckbox.checked = state.qualifiedOnly;
-  syncStatFieldVisibility();
-
   const badge = document.querySelector<HTMLSpanElement>("#pf-badge");
   if (badge) {
     const count = poolFilterActiveCount(state);
@@ -407,7 +762,11 @@ function bindPoolFiltersOutsideClick(): void {
     const container = document.querySelector<HTMLElement>(".pool-filters");
     const toggle = document.querySelector<HTMLButtonElement>("#pf-toggle");
     if (!popover || !container || !toggle || popover.hidden) return;
-    if (!container.contains(event.target as Node)) {
+    // Use composedPath rather than container.contains(event.target): a click inside the stat
+    // tree can trigger a re-render that replaces the clicked element's innerHTML before this
+    // listener runs, detaching event.target from the DOM and making contains() wrongly report
+    // "outside". composedPath is captured at dispatch time, so it's unaffected by that mutation.
+    if (!event.composedPath().includes(container)) {
       filtersOpen = false;
       popover.hidden = true;
       toggle.setAttribute("aria-expanded", "false");
@@ -418,17 +777,6 @@ function bindPoolFiltersOutsideClick(): void {
 function setButtonPressed(button: HTMLButtonElement, pressed: boolean, activeClass: string): void {
   button.classList.toggle(activeClass, pressed);
   button.setAttribute("aria-pressed", String(pressed));
-}
-
-/** The comparator and value fields only make sense once a stat has actually been picked. */
-function syncStatFieldVisibility(): void {
-  const statSelect = document.querySelector<HTMLSelectElement>("#pf-stat");
-  const comparatorField = document.querySelector<HTMLElement>("#pf-comparator-field");
-  const statValueField = document.querySelector<HTMLElement>("#pf-stat-value-field");
-  if (!statSelect || !comparatorField || !statValueField) return;
-  const hasStat = statSelect.value !== "";
-  comparatorField.hidden = !hasStat;
-  statValueField.hidden = !hasStat;
 }
 
 /** Keeps a grid's "Select all" / "Select none" toggle button in sync with its items. */
@@ -566,10 +914,6 @@ export function bindPoolFilters(
   onClear: () => void,
   onOpen?: () => void,
 ): void {
-  const statSelect = document.querySelector<HTMLSelectElement>("#pf-stat")!;
-  const comparatorSelect = document.querySelector<HTMLSelectElement>("#pf-comparator")!;
-  const statValueInput = document.querySelector<HTMLInputElement>("#pf-stat-value")!;
-  const qualifiedCheckbox = document.querySelector<HTMLInputElement>("#pf-qualified")!;
   const applyButton = document.querySelector<HTMLButtonElement>("#pf-apply")!;
   const clearButton = document.querySelector<HTMLButtonElement>("#pf-clear")!;
   const toggle = document.querySelector<HTMLButtonElement>("#pf-toggle")!;
@@ -610,9 +954,8 @@ export function bindPoolFilters(
   bindTeamPicker();
   bindCountryPicker();
   bindPositionPicker();
-
-  statSelect.addEventListener("change", syncStatFieldVisibility);
-  syncStatFieldVisibility();
+  bindStatExprTree();
+  bindStatAdvancedToggle();
 
   applyButton.addEventListener("click", () => {
     const teamIds = new Set(
@@ -634,16 +977,11 @@ export function bindPoolFilters(
         ),
       ).map((btn) => btn.dataset.country!),
     );
-    const statCategoryId = statSelect.value || null;
-    const statValue = statValueInput.value === "" ? null : Number(statValueInput.value);
     onApply({
       teamIds,
       specificPositions,
       birthCountries,
-      statCategoryId,
-      comparator: comparatorSelect.value === "<=" ? "<=" : ">=",
-      statValue: statCategoryId ? statValue : null,
-      qualifiedOnly: qualifiedCheckbox.checked,
+      statExpr: pruneStatRoot(editableStatExpr),
     });
   });
 
@@ -660,10 +998,8 @@ export function bindPoolFilters(
       .querySelectorAll<HTMLButtonElement>("#pf-position-grid .pool-filters__position-btn")
       .forEach((btn) => setButtonPressed(btn, false, "pool-filters__position-btn--active"));
     updateSelectAllButton('#pf-position-grid .pool-filters__position-btn', "pf-position-select-all");
-    statSelect.value = "";
-    statValueInput.value = "";
-    qualifiedCheckbox.checked = false;
-    syncStatFieldVisibility();
+    editableStatExpr = makeStatGroup("AND", []);
+    rerenderStatExprTree();
     onClear();
   });
 }
