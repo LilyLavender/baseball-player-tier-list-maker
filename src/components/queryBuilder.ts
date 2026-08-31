@@ -4,7 +4,11 @@ import { fetchTeams } from "../api/mlbApi";
 import { qualifierFor, statOptions, STAT_CATEGORIES } from "../data/statCategories";
 import { bindComboBox, getComboBoxValue, renderComboBox, setComboBoxOptions } from "./comboBox";
 import type { ComboBoxOption } from "./comboBox";
-import type { AutoTierStrategy } from "../tiering/autoTier";
+import { bindConditionalField } from "../utils/conditionalField";
+import { icon } from "../utils/icon";
+import { bindPlayerSearch, renderPlayerSearch } from "./playerSearch";
+import type { PoolPlayer } from "../types/mlb";
+import { renderToggleSwitch } from "../utils/toggleSwitch";
 
 export interface StatQueryParams {
   statCategoryId: string;
@@ -19,7 +23,7 @@ export interface StatQueryParams {
 export interface QueryBuilderCallbacks {
   onApplyTeam: (teamId: number | "all", season: number) => void;
   onApplyStat: (params: StatQueryParams) => void;
-  onGenerateAutoTiers: (strategy: AutoTierStrategy) => void;
+  onSearchAdd: (player: PoolPlayer) => void;
 }
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -42,112 +46,101 @@ export function renderQueryBuilder(
   const defaultTeamValue = selectedTeamQuery ? String(selectedTeamQuery.teamId) : ALL_TEAMS_VALUE;
 
   return `
-    <h2 class="query-builder__heading">By team &amp; season</h2>
-    <label class="query-builder__field">
-      Team
-      ${renderComboBox(
-        "qb-team",
-        teamOptions(teams),
-        defaultTeamValue,
-        "Search teams…",
-      )}
-    </label>
-    <label class="query-builder__field">
-      Season
-      <input id="qb-season" type="number" value="${teamSeason}" min="1901" max="${CURRENT_YEAR}" />
-    </label>
-    <button id="qb-apply" type="button">Apply</button>
+    <h2 class="query-builder__heading">Add Players</h2>
+    <div class="query-builder__tabs" role="tablist" aria-label="Pool source">
+      <button
+        type="button"
+        id="qb-tab-team"
+        class="query-builder__tab query-builder__tab--active"
+        role="tab"
+        aria-selected="true"
+        aria-controls="qb-panel-team"
+      >${icon("groups")} Teams</button>
+      <button
+        type="button"
+        id="qb-tab-stat"
+        class="query-builder__tab"
+        role="tab"
+        aria-selected="false"
+        aria-controls="qb-panel-stat"
+        tabindex="-1"
+      >${icon("leaderboard")} Leaders</button>
+      <button
+        type="button"
+        id="qb-tab-search"
+        class="query-builder__tab"
+        role="tab"
+        aria-selected="false"
+        aria-controls="qb-panel-search"
+        tabindex="-1"
+      >${icon("search")} Search</button>
+    </div>
 
-    <h2 class="query-builder__heading query-builder__heading--stat">By stat leaders</h2>
-    <label class="query-builder__field">
-      Stat
-      ${renderComboBox("qb-stat", statOptions(), statOptions()[0]?.value, "Search stats…")}
-    </label>
-    <label class="query-builder__field">
-      Scope
-      <select id="qb-stat-scope">
-        <option value="season" selected>Single season</option>
-        <option value="career">Career (all-time)</option>
-      </select>
-    </label>
-    <label class="query-builder__field" id="qb-stat-season-field">
-      Season
-      <input id="qb-stat-season" type="number" value="${CURRENT_YEAR}" min="1901" max="${CURRENT_YEAR}" />
-    </label>
-    <label class="query-builder__field">
-      Top N
-      <select id="qb-stat-limit">
-        <option value="10">Top 10</option>
-        <option value="25">Top 25</option>
-        <option value="50">Top 50</option>
-        <option value="100">Top 100</option>
-        <option value="${ALL_LIMIT}" selected>All</option>
-      </select>
-    </label>
-    <label class="query-builder__field">
-      Min <span id="qb-stat-value-label">value</span>
-      <input id="qb-stat-min-value" type="number" placeholder="No minimum" step="any" />
-    </label>
-    <label class="query-builder__field query-builder__field--checkbox">
-      <input id="qb-stat-qualified" type="checkbox" />
-      Use official qualified minimum
-    </label>
-    <label class="query-builder__field">
-      Min <span id="qb-stat-qualifier-label">Plate Appearances</span>
-      <input id="qb-stat-min-qualifier" type="number" placeholder="No minimum" step="any" />
-    </label>
-    <button id="qb-stat-apply" type="button">Apply</button>
+    <div id="qb-panel-team" class="query-builder__panel" role="tabpanel" aria-labelledby="qb-tab-team">
+      <label class="query-builder__field">
+        Team
+        ${renderComboBox(
+          "qb-team",
+          teamOptions(teams),
+          defaultTeamValue,
+          "Search teams…",
+        )}
+      </label>
+      <label class="query-builder__field">
+        Season
+        <input id="qb-season" type="number" value="${teamSeason}" min="1901" max="${CURRENT_YEAR}" />
+      </label>
+      <button id="qb-apply" type="button">${icon("group_add")} Add to Pool</button>
+    </div>
 
-    <h2 class="query-builder__heading query-builder__heading--stat">Auto-tier from pool</h2>
-    <p class="query-builder__placeholder">Builds tiers from stat values already in the pool. Run a stat leaders query first.</p>
-    <label class="query-builder__field">
-      Strategy
-      <select id="qb-autotier-strategy">
-        <option value="interval">Fixed interval</option>
-        <option value="per-unit">One tier per value</option>
-        <option value="auto-grouping">Auto S-F grouping (natural breaks)</option>
-        <option value="thresholds">Custom thresholds</option>
-      </select>
-    </label>
-    <label class="query-builder__field" id="qb-autotier-interval-field">
-      Interval size
-      <input id="qb-autotier-interval" type="number" value="10" min="0.1" step="0.1" />
-    </label>
-    <label class="query-builder__field query-builder__field--checkbox" id="qb-autotier-empty-field" hidden>
-      <input id="qb-autotier-empty" type="checkbox" />
-      Show empty tiers between values
-    </label>
-    <label class="query-builder__field" id="qb-autotier-thresholds-field" hidden>
-      Thresholds (comma-separated)
-      <input id="qb-autotier-thresholds" type="text" placeholder="e.g. 40, 30, 20, 10" />
-    </label>
-    <label class="query-builder__field" id="qb-autotier-scheme-field" hidden>
-      Tier scheme
-      <select id="qb-autotier-scheme">
-        <option value="sf">S-F (6 tiers)</option>
-        <option value="sf-plus-minus">S-F with +/- (up to 18 tiers)</option>
-        <option value="custom">Use current tier board's labels</option>
-      </select>
-    </label>
-    <button id="qb-autotier-apply" type="button">Generate Tiers</button>
+    <div id="qb-panel-stat" class="query-builder__panel" role="tabpanel" aria-labelledby="qb-tab-stat" hidden>
+      <label class="query-builder__field">
+        Stat
+        ${renderComboBox("qb-stat", statOptions(), statOptions()[0]?.value, "Search stats…")}
+      </label>
+      <label class="query-builder__field">
+        Scope
+        <select id="qb-stat-scope">
+          <option value="season" selected>Single season</option>
+          <option value="career">All time</option>
+        </select>
+      </label>
+      <label class="query-builder__field" id="qb-stat-season-field">
+        Season
+        <input id="qb-stat-season" type="number" value="${CURRENT_YEAR}" min="1901" max="${CURRENT_YEAR}" />
+      </label>
+      <fieldset class="query-builder__group">
+        <legend class="query-builder__group-legend">Minimums</legend>
+        <label class="query-builder__field">
+          <span id="qb-stat-value-label">value</span>
+          <input id="qb-stat-min-value" type="number" placeholder="No minimum" step="any" />
+        </label>
+        <label class="query-builder__field" id="qb-stat-qualifier-field">
+          <span id="qb-stat-qualifier-label">Plate Appearances</span>
+          <input id="qb-stat-min-qualifier" type="number" placeholder="No minimum" step="any" />
+        </label>
+        <label class="query-builder__field query-builder__field--checkbox" id="qb-stat-qualified-field">
+          ${renderToggleSwitch("qb-stat-qualified")}
+          Use official qualified minimum
+        </label>
+      </fieldset>
+      <label class="query-builder__field">
+        Amount
+        <select id="qb-stat-limit">
+          <option value="10">Top 10</option>
+          <option value="25">Top 25</option>
+          <option value="50">Top 50</option>
+          <option value="100">Top 100</option>
+          <option value="${ALL_LIMIT}" selected>All</option>
+        </select>
+      </label>
+      <button id="qb-stat-apply" type="button">${icon("group_add")} Add to Pool</button>
+    </div>
+
+    <div id="qb-panel-search" class="query-builder__panel" role="tabpanel" aria-labelledby="qb-tab-search" hidden>
+      ${renderPlayerSearch()}
+    </div>
   `;
-}
-
-/**
- * Shows `element` only when `select`'s current value matches one of `visibleFor`, and keeps it in
- * sync on every change. Runs once immediately so the initial hidden state always matches the
- * select's initial value, even if that doesn't match the field's hardcoded `hidden` attribute.
- */
-function bindConditionalField(
-  select: HTMLSelectElement,
-  element: HTMLElement,
-  visibleFor: string[],
-): void {
-  const sync = () => {
-    element.hidden = !visibleFor.includes(select.value);
-  };
-  select.addEventListener("change", sync);
-  sync();
 }
 
 function applyStatFieldDefaults(statId: string): void {
@@ -158,9 +151,42 @@ function applyStatFieldDefaults(statId: string): void {
   document.querySelector("#qb-stat-value-label")!.textContent = stat.label;
   document.querySelector("#qb-stat-qualifier-label")!.textContent = qualifier.label;
   document.querySelector<HTMLInputElement>("#qb-stat-qualified")!.checked = stat.qualified;
+
+  document.querySelector<HTMLElement>("#qb-stat-qualifier-field")!.hidden = !stat.qualified;
+  if (!stat.qualified) {
+    document.querySelector<HTMLInputElement>("#qb-stat-min-qualifier")!.value = "";
+  }
+}
+
+function bindQueryBuilderTabs(): void {
+  const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>(".query-builder__tab"));
+
+  const activate = (tab: HTMLButtonElement, focus: boolean): void => {
+    for (const t of tabs) {
+      const selected = t === tab;
+      t.setAttribute("aria-selected", String(selected));
+      t.tabIndex = selected ? 0 : -1;
+      t.classList.toggle("query-builder__tab--active", selected);
+      const panel = document.getElementById(t.getAttribute("aria-controls") ?? "");
+      if (panel) panel.hidden = !selected;
+    }
+    if (focus) tab.focus();
+  };
+
+  tabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => activate(tab, false));
+    tab.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+      event.preventDefault();
+      const nextIndex =
+        event.key === "ArrowRight" ? (index + 1) % tabs.length : (index - 1 + tabs.length) % tabs.length;
+      activate(tabs[nextIndex], true);
+    });
+  });
 }
 
 export function bindQueryBuilder(teams: Team[], callbacks: QueryBuilderCallbacks): void {
+  bindQueryBuilderTabs();
   bindComboBox("qb-team", teamOptions(teams), () => {});
   bindComboBox("qb-stat", statOptions(), (statId) => applyStatFieldDefaults(statId));
   applyStatFieldDefaults(getComboBoxValue("qb-stat"));
@@ -217,40 +243,5 @@ export function bindQueryBuilder(teams: Team[], callbacks: QueryBuilderCallbacks
     });
   });
 
-  const strategySelect = document.querySelector<HTMLSelectElement>("#qb-autotier-strategy")!;
-  const intervalField = document.querySelector<HTMLLabelElement>("#qb-autotier-interval-field")!;
-  const intervalInput = document.querySelector<HTMLInputElement>("#qb-autotier-interval")!;
-  const emptyTiersField = document.querySelector<HTMLLabelElement>("#qb-autotier-empty-field")!;
-  const emptyTiersCheckbox = document.querySelector<HTMLInputElement>("#qb-autotier-empty")!;
-  const thresholdsField = document.querySelector<HTMLLabelElement>("#qb-autotier-thresholds-field")!;
-  const thresholdsInput = document.querySelector<HTMLInputElement>("#qb-autotier-thresholds")!;
-  const schemeField = document.querySelector<HTMLLabelElement>("#qb-autotier-scheme-field")!;
-  const schemeSelect = document.querySelector<HTMLSelectElement>("#qb-autotier-scheme")!;
-  const autoTierApplyButton = document.querySelector<HTMLButtonElement>("#qb-autotier-apply")!;
-
-  bindConditionalField(strategySelect, intervalField, ["interval"]);
-  bindConditionalField(strategySelect, emptyTiersField, ["per-unit"]);
-  bindConditionalField(strategySelect, thresholdsField, ["thresholds"]);
-  bindConditionalField(strategySelect, schemeField, ["auto-grouping"]);
-
-  autoTierApplyButton.addEventListener("click", () => {
-    const kind = strategySelect.value;
-    if (kind === "interval") {
-      callbacks.onGenerateAutoTiers({ kind: "interval", size: Number(intervalInput.value) || 1 });
-    } else if (kind === "per-unit") {
-      callbacks.onGenerateAutoTiers({ kind: "per-unit", showEmptyTiers: emptyTiersCheckbox.checked });
-    } else if (kind === "auto-grouping") {
-      const scheme =
-        schemeSelect.value === "sf-plus-minus" || schemeSelect.value === "custom"
-          ? schemeSelect.value
-          : "sf";
-      callbacks.onGenerateAutoTiers({ kind: "auto-grouping", scheme });
-    } else if (kind === "thresholds") {
-      const thresholds = thresholdsInput.value
-        .split(",")
-        .map((part) => Number(part.trim()))
-        .filter((n) => Number.isFinite(n));
-      callbacks.onGenerateAutoTiers({ kind: "thresholds", thresholds });
-    }
-  });
+  bindPlayerSearch(callbacks.onSearchAdd);
 }

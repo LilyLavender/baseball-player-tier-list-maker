@@ -13,15 +13,17 @@ import type { StatQueryParams } from "./components/queryBuilder";
 import { renderPlayerPool } from "./components/playerPool";
 import {
   bindPoolFilters,
+  collectStatCategoryIds,
   emptyPoolFilterState,
   isPoolFilterActive,
   matchesPoolFilter,
+  refreshPoolFilterCountries,
   renderPoolFilters,
   syncPoolFilterUI,
 } from "./components/poolFilters";
 import type { PoolFilterState } from "./components/poolFilters";
-import { bindPlayerSearch, renderPlayerSearch } from "./components/playerSearch";
 import { bindTierBoard, renderTierBoard, tierDropZoneIds } from "./components/tierBoard";
+import type { PoolActionsHtml } from "./components/tierBoard";
 import {
   initPoolSortable,
   initRemoveZoneSortable,
@@ -47,11 +49,15 @@ import { bindHistoryPanel, renderHistoryPanel } from "./components/historyPanel"
 import { qualifierFor, STAT_CATEGORIES } from "./data/statCategories";
 import { cloneDefaultTiers } from "./data/tiers";
 import type { TierDefinition } from "./data/tiers";
+import { TIER_COLOR_PALETTE } from "./data/tierColors";
 import { describeQuery } from "./utils/queryLabel";
 import { exportTierListAsPng } from "./export/exportImage";
+import { bindExportPanel, renderExportPanel } from "./components/exportModal";
 import { generateAutoTiers } from "./tiering/autoTier";
 import type { AutoTierStrategy } from "./tiering/autoTier";
 import type { PoolPlayer, Team } from "./types/mlb";
+import { renderSpinner } from "./components/spinner";
+import { icon, xIcon } from "./utils/icon";
 
 applyTheme(loadThemePref());
 applyStatBadgePref(loadStatBadgePref());
@@ -64,10 +70,19 @@ let currentListId: string | null = null;
 let currentTiers: TierDefinition[] = cloneDefaultTiers();
 let teams: Team[] = [];
 let currentPoolFilter: PoolFilterState = emptyPoolFilterState();
-let currentStatValues = new Map<number, number>();
+let currentStatValuesByCategory = new Map<string, Map<number, number>>();
 const teamStatCache = new Map<string, Map<number, number>>();
 let activeCountryByPlayerId = new Map<number, string>();
-let countryFilterOptions: string[] = [];
+
+/** Birth countries actually present among players currently in the unranked pool. */
+function poolBirthCountries(): string[] {
+  const countries = new Set<string>();
+  for (const id of collectPoolPlayerIds()) {
+    const country = playersById.get(id)?.birthCountry;
+    if (country) countries.add(country);
+  }
+  return Array.from(countries).sort();
+}
 
 function rememberPlayers(players: PoolPlayer[]): void {
   for (const player of players) {
@@ -121,7 +136,8 @@ function bindTierBoardCallbacks(): void {
     onAddTier: () => {
       const poolIds = collectPoolPlayerIds();
       const tierIds = collectTierPlayerIds(currentTiers.length);
-      currentTiers.push({ label: "New", color: "#4a5568" });
+      const nextColor = TIER_COLOR_PALETTE[currentTiers.length % TIER_COLOR_PALETTE.length];
+      currentTiers.push({ label: "New", color: nextColor });
       tierIds.push([]);
       rerenderBoardAndPool(tierIds.map(playersFromIds), playersFromIds(poolIds));
     },
@@ -132,7 +148,24 @@ function bindTierBoardCallbacks(): void {
       const emptyTiers = currentTiers.map(() => []);
       rerenderBoardAndPool(emptyTiers, playersFromIds([...poolIds, ...tieredIds]));
     },
+    onGenerateAutoTiers: (strategy) => {
+      applyAutoTiers(strategy);
+    },
   });
+}
+
+function renderSiteFooter(): string {
+  return `
+    <footer class="site-footer">
+      <span>Made by <a href="https://github.com/LilyLavender" target="_blank" rel="noopener noreferrer">Lily</a>!</span>
+      <span class="site-footer__sep"></span>
+      <span>Submit feedback in <a href="https://forms.gle/EeBaEhffVcmJPgtM9" target="_blank" rel="noopener noreferrer">the Google Form</a> or <a class="site-footer__icon-link" href="https://x.com/LilyLambda" target="_blank" rel="noopener noreferrer">${xIcon()} @LilyLambda</a></span>
+      <span class="site-footer__sep"></span>
+      <span>Support me on <a class="site-footer__icon-link" href="https://ko-fi.com/LilyLambda" target="_blank" rel="noopener noreferrer"><img src="./kofi-symbol.png" alt="" class="site-footer__kofi-icon" width="16" height="16" /> Ko-fi</a>!</span>
+      <span class="site-footer__sep"></span>
+      <span class="site-footer__disclaimer">Not affiliated with or endorsed by MLB, MLB Advanced Media, or any MLB team</span>
+    </footer>
+  `;
 }
 
 function renderPoolSection(poolContent: string): string {
@@ -140,23 +173,28 @@ function renderPoolSection(poolContent: string): string {
     <section class="pool">
       <div class="pool__header">
         <h2 class="pool__heading">Unranked pool <span id="pool-count" class="pool__count"></span></h2>
-        <div class="pool__header-actions">
-          ${renderPlayerSearch()}
-          <button id="return-all-to-pool" type="button" class="pool__clear">Return all to pool</button>
-          <button id="clear-pool" type="button" class="pool__clear">Clear pool</button>
-        </div>
       </div>
-      ${renderPoolFilters(teams, countryFilterOptions)}
       <div id="pool-content">${poolContent}</div>
     </section>
   `;
 }
 
-async function ensureStatValues(
-  statCategoryId: string,
-  players: PoolPlayer[],
-  qualifiedOnly: boolean,
-): Promise<Map<number, number>> {
+/** Slotted into the tier board's action row around "Add tier"/"Auto-tier"/"Reset tiers". */
+function renderPoolActions(): PoolActionsHtml {
+  return {
+    filterPool: renderPoolFilters(teams, poolBirthCountries()),
+    returnToPool: `<button id="return-all-to-pool" type="button" class="board__pool-action">${icon("arrow_downward")} Return all to pool</button>`,
+    clearPool: `<button id="clear-pool" type="button" class="board__pool-action">${icon("clear_all")} Clear pool</button>`,
+  };
+}
+
+/**
+ * Fetches values for one stat category, automatically applying that category's own qualified-
+ * player minimum (`StatCategory.qualified`, e.g. batting average or ERA) rather than exposing a
+ * manual toggle, matching the smart default already used for the query builder's own leaderboard
+ * query.
+ */
+async function ensureStatValues(statCategoryId: string, players: PoolPlayer[]): Promise<Map<number, number>> {
   const stat = STAT_CATEGORIES.find((s) => s.id === statCategoryId);
   if (!stat) return new Map();
 
@@ -171,11 +209,11 @@ async function ensureStatValues(
       const [teamIdStr, seasonStr] = pair.split(":");
       const teamId = Number(teamIdStr);
       const season = Number(seasonStr);
-      const cacheKey = `${statCategoryId}:${teamId}:${season}:${qualifiedOnly}`;
+      const cacheKey = `${statCategoryId}:${teamId}:${season}`;
       if (teamStatCache.has(cacheKey)) return;
 
       try {
-        const raw = await fetchTeamSeasonStats(teamId, season, stat.group, qualifiedOnly);
+        const raw = await fetchTeamSeasonStats(teamId, season, stat.group, stat.qualified);
         const values = new Map<number, number>();
         for (const [playerId, statLine] of raw) {
           const value = parseFloat(String(statLine[stat.statKey]));
@@ -191,11 +229,22 @@ async function ensureStatValues(
   const merged = new Map<number, number>();
   for (const pair of teamSeasonPairs) {
     const [teamIdStr, seasonStr] = pair.split(":");
-    const values = teamStatCache.get(`${statCategoryId}:${teamIdStr}:${seasonStr}:${qualifiedOnly}`);
+    const values = teamStatCache.get(`${statCategoryId}:${teamIdStr}:${seasonStr}`);
     if (!values) continue;
     for (const [playerId, value] of values) merged.set(playerId, value);
   }
   return merged;
+}
+
+/** Fetches values for several stat categories in parallel, keyed by stat category id. */
+async function ensureStatValuesForCategories(
+  statCategoryIds: string[],
+  players: PoolPlayer[],
+): Promise<Map<string, Map<number, number>>> {
+  const entries = await Promise.all(
+    statCategoryIds.map(async (id) => [id, await ensureStatValues(id, players)] as const),
+  );
+  return new Map(entries);
 }
 
 /** Fetches and caches birth country for any pool player that doesn't have it yet, in place. */
@@ -215,7 +264,7 @@ function applyPoolFilterToDom(): void {
   cards.forEach((card) => {
     const id = Number(card.dataset.playerId);
     const player = playersById.get(id);
-    const visible = !player || matchesPoolFilter(player, currentPoolFilter, currentStatValues);
+    const visible = !player || matchesPoolFilter(player, currentPoolFilter, currentStatValuesByCategory);
     card.classList.toggle("player-card--filtered-out", !visible);
   });
   updatePoolCount();
@@ -224,26 +273,28 @@ function applyPoolFilterToDom(): void {
 function bindPoolFilterControls(): void {
   syncPoolFilterUI(currentPoolFilter);
   bindPoolFilters(
-    teams,
     (state) => {
       currentPoolFilter = state;
+      syncPoolFilterUI(currentPoolFilter);
       const poolPlayers = playersFromIds(collectPoolPlayerIds());
 
+      const statCategoryIds = collectStatCategoryIds(state.statExpr);
       const statValuesPromise =
-        state.statCategoryId && state.statValue !== null
-          ? ensureStatValues(state.statCategoryId, poolPlayers, state.qualifiedOnly)
-          : Promise.resolve(new Map<number, number>());
+        statCategoryIds.length > 0
+          ? ensureStatValuesForCategories(statCategoryIds, poolPlayers)
+          : Promise.resolve(new Map<string, Map<number, number>>());
       const birthCountriesPromise =
         state.birthCountries.size > 0 ? ensureBirthCountries(poolPlayers) : Promise.resolve();
 
       const statusEl = document.querySelector<HTMLSpanElement>("#pf-status");
       const applyButton = document.querySelector<HTMLButtonElement>("#pf-apply");
-      if (statusEl) statusEl.textContent = "Applying…";
+      if (statusEl)
+        statusEl.innerHTML = `${renderSpinner("Applying filters", "sm", "current")} Applying…`;
       if (applyButton) applyButton.disabled = true;
 
       void Promise.all([statValuesPromise, birthCountriesPromise])
         .then(([values]) => {
-          currentStatValues = values;
+          currentStatValuesByCategory = values;
           applyPoolFilterToDom();
           if (statusEl) statusEl.textContent = "";
         })
@@ -257,8 +308,15 @@ function bindPoolFilterControls(): void {
     },
     () => {
       currentPoolFilter = emptyPoolFilterState();
-      currentStatValues = new Map();
+      currentStatValuesByCategory = new Map();
+      syncPoolFilterUI(currentPoolFilter);
       applyPoolFilterToDom();
+    },
+    () => {
+      const poolPlayers = playersFromIds(collectPoolPlayerIds());
+      void ensureBirthCountries(poolPlayers).then(() => {
+        refreshPoolFilterCountries(poolBirthCountries());
+      });
     },
   );
 }
@@ -274,25 +332,26 @@ function bindClearPoolButton(): void {
     const emptyTiers = currentTiers.map(() => []);
     rerenderBoardAndPool(emptyTiers, playersFromIds([...poolIds, ...tierIds]));
   });
+}
 
-  bindPlayerSearch((player) => {
-    rememberPlayers([player]);
-    const existingIds = new Set([
-      ...collectPoolPlayerIds(),
-      ...collectTierPlayerIds(currentTiers.length).flat(),
-    ]);
-    if (existingIds.has(player.id)) return;
+function onSearchAddPlayer(player: PoolPlayer): void {
+  rememberPlayers([player]);
+  const existingIds = new Set([
+    ...collectPoolPlayerIds(),
+    ...collectTierPlayerIds(currentTiers.length).flat(),
+  ]);
+  if (existingIds.has(player.id)) return;
 
-    const poolPlayers = playersFromIds(collectPoolPlayerIds());
-    setPoolContent(renderPlayerPool([...poolPlayers, player]));
-  });
+  const poolPlayers = playersFromIds(collectPoolPlayerIds());
+  setPoolContent(renderPlayerPool([...poolPlayers, player]));
 }
 
 function rerenderBoardAndPool(tierPlayers: PoolPlayer[][], poolPlayers: PoolPlayer[]): void {
   const boardWrap = document.querySelector<HTMLDivElement>(".board-wrap")!;
   boardWrap.innerHTML = `
-    ${renderTierBoard(currentTiers, tierPlayers)}
+    ${renderTierBoard(currentTiers, tierPlayers, renderPoolActions())}
     ${renderPoolSection(renderPlayerPool(poolPlayers))}
+    ${renderSiteFooter()}
   `;
   initTierSortables(tierDropZoneIds(currentTiers.length));
   initPoolSortable();
@@ -346,19 +405,34 @@ function renderShell(
 ): void {
   app.innerHTML = `
     <header class="topbar">
-      <span class="topbar__wordmark">MLB Tier List Maker</span>
+      <div class="topbar__brand">
+        <svg class="topbar__logo" viewBox="0 0 64 64" width="26" height="26" aria-hidden="true">
+          <polygon points="32,4 60,32 32,60 4,32" fill="#f5f6f2"/>
+          <polyline points="16,32 32,16 48,32" stroke="#e50f4a" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="topbar__wordmark">Baseball Tier List Maker</span>
+      </div>
       <div class="topbar__controls">
         <button id="theme-toggle" type="button" class="topbar__theme-toggle" title="Toggle light/dark theme">
-          <span class="topbar__theme-toggle-icon" aria-hidden="true">🌙</span>
+          <span class="topbar__theme-toggle-icon material-symbols-outlined" aria-hidden="true">dark_mode</span>
         </button>
         <label class="topbar__checkbox">
-          <input id="stat-badge-toggle" type="checkbox" />
+          <span class="topbar__toggle">
+            <input id="stat-badge-toggle" type="checkbox" class="topbar__toggle-input" />
+            <span class="topbar__toggle-track"><span class="topbar__toggle-thumb"></span></span>
+          </span>
           Show stat numbers
         </label>
-        <button id="new-list" type="button" class="topbar__btn">New</button>
-        <button id="history-open" type="button" class="topbar__btn">History</button>
-        <button id="export-list" type="button" class="topbar__btn">Export</button>
-        <button id="save-list" type="button" class="topbar__save">Save</button>
+        <button id="new-list" type="button" class="topbar__btn">${icon("restart_alt")} Reset</button>
+        <button id="history-open" type="button" class="topbar__btn">${icon("history")} History</button>
+        <button id="save-list" type="button" class="topbar__btn">${icon("save")} Save</button>
+        <div class="export-menu-wrap">
+          <button id="export-list" type="button" class="topbar__save">${icon("download")} Export</button>
+          ${renderExportPanel({
+            title: (currentListId && getSavedList(currentListId)?.title) || describeQuery(currentQuery, teams),
+            theme: loadThemePref(),
+          })}
+        </div>
       </div>
     </header>
     <div class="layout">
@@ -366,15 +440,16 @@ function renderShell(
         ${queryBuilderContent}
         <div id="remove-zone" class="remove-zone">
           <div class="remove-zone__content">
-            <span class="remove-zone__icon" aria-hidden="true">🗑</span>
+            <span class="remove-zone__icon material-symbols-outlined" aria-hidden="true">delete</span>
             <span>Remove player</span>
           </div>
           <div id="remove-zone-drop" class="remove-zone__drop"></div>
         </div>
       </aside>
       <div class="board-wrap">
-        ${renderTierBoard(currentTiers, tierPlayers)}
+        ${renderTierBoard(currentTiers, tierPlayers, renderPoolActions())}
         ${renderPoolSection(poolContent)}
+        ${renderSiteFooter()}
       </div>
     </div>
   `;
@@ -413,7 +488,7 @@ function renderShell(
     currentQuery = null;
     currentTiers = cloneDefaultTiers();
     currentPoolFilter = emptyPoolFilterState();
-    currentStatValues = new Map();
+    currentStatValuesByCategory = new Map();
     setLastOpenedId(null);
     renderShell(renderQueryBuilder(teams), `<p class="pool__placeholder">Players will appear here once a query runs.</p>`);
     bindQueryBuilderCallbacks();
@@ -423,39 +498,78 @@ function renderShell(
     openHistoryPanel();
   });
 
-  document.querySelector<HTMLButtonElement>("#export-list")!.addEventListener("click", (event) => {
-    const button = event.currentTarget as HTMLButtonElement;
-    const title =
-      (currentListId && getSavedList(currentListId)?.title) || describeQuery(currentQuery, teams);
-    const tierPlayers = collectTierPlayerIds(currentTiers.length).map(playersFromIds);
+  const exportButton = document.querySelector<HTMLButtonElement>("#export-list")!;
+  const exportPanel = document.querySelector<HTMLDivElement>("#export-panel")!;
 
-    button.disabled = true;
-    const originalLabel = button.textContent;
-    button.textContent = "Exporting…";
+  const closeExportPanel = () => {
+    exportPanel.hidden = true;
+    document.removeEventListener("click", handleOutsideExportClick, true);
+  };
 
-    exportTierListAsPng(title, currentTiers, tierPlayers)
-      .catch((error) => {
-        console.error(error);
-        window.alert("Couldn't export the tier list. Try again.");
-      })
-      .finally(() => {
-        button.disabled = false;
-        button.textContent = originalLabel;
-      });
+  function handleOutsideExportClick(event: MouseEvent) {
+    if (exportPanel.contains(event.target as Node) || exportButton.contains(event.target as Node)) return;
+    closeExportPanel();
+  }
+
+  exportButton.addEventListener("click", () => {
+    if (!exportPanel.hidden) {
+      closeExportPanel();
+      return;
+    }
+    exportPanel.hidden = false;
+    document.addEventListener("click", handleOutsideExportClick, true);
+    exportPanel.querySelector<HTMLInputElement>("#export-panel-title-input")!.focus();
+  });
+
+  bindExportPanel({
+    onClose: closeExportPanel,
+    onExport: ({ title, subtitle, theme }) => {
+      const tierPlayers = collectTierPlayerIds(currentTiers.length).map(playersFromIds);
+      const submitButton = document.querySelector<HTMLButtonElement>("#export-panel-submit")!;
+
+      submitButton.disabled = true;
+      const originalLabel = submitButton.innerHTML;
+      submitButton.innerHTML = `${renderSpinner("Exporting", "sm", "current")} Exporting…`;
+
+      exportTierListAsPng(
+        { title, subtitle, theme, showStatBadges: loadStatBadgePref() },
+        currentTiers,
+        tierPlayers,
+      )
+        .then(() => closeExportPanel())
+        .catch((error) => {
+          console.error(error);
+          window.alert("Couldn't export the tier list. Try again.");
+        })
+        .finally(() => {
+          submitButton.disabled = false;
+          submitButton.innerHTML = originalLabel;
+        });
+    },
   });
 
   const themeToggle = document.querySelector<HTMLButtonElement>("#theme-toggle")!;
   const themeToggleIcon = themeToggle.querySelector<HTMLSpanElement>(".topbar__theme-toggle-icon")!;
   const syncThemeToggle = (theme: ThemeName) => {
-    themeToggleIcon.textContent = theme === "dark" ? "☀️" : "🌙";
+    themeToggleIcon.textContent = theme === "dark" ? "light_mode" : "dark_mode";
     themeToggle.setAttribute("aria-label", theme === "dark" ? "Switch to light theme" : "Switch to dark theme");
   };
   syncThemeToggle(loadThemePref());
+  let themeSpinning = false;
   themeToggle.addEventListener("click", () => {
-    const theme: ThemeName = loadThemePref() === "dark" ? "light" : "dark";
-    applyTheme(theme);
-    saveThemePref(theme);
-    syncThemeToggle(theme);
+    if (themeSpinning) return;
+    themeSpinning = true;
+    themeToggleIcon.classList.add("theme-spinning");
+    setTimeout(() => {
+      const theme: ThemeName = loadThemePref() === "dark" ? "light" : "dark";
+      applyTheme(theme);
+      saveThemePref(theme);
+      syncThemeToggle(theme);
+    }, 350);
+    setTimeout(() => {
+      themeSpinning = false;
+      themeToggleIcon.classList.remove("theme-spinning");
+    }, 1000);
   });
 
   const statBadgeToggle = document.querySelector<HTMLInputElement>("#stat-badge-toggle")!;
@@ -471,6 +585,10 @@ function updatePoolCount(): void {
   if (!countEl) return;
   const cards = document.querySelectorAll<HTMLElement>("#pool-content .player-card");
   const total = cards.length;
+  if (total === 0) {
+    countEl.textContent = "";
+    return;
+  }
   if (!isPoolFilterActive(currentPoolFilter)) {
     countEl.textContent = `(${total})`;
     return;
@@ -485,10 +603,18 @@ function setPoolContent(html: string): void {
   applyPoolFilterToDom();
 }
 
+/** Merges newly-fetched players into whatever's already in the pool, skipping anyone already in the pool or a tier. */
+function mergeIntoPool(newPlayers: PoolPlayer[], existingPoolIds: number[]): PoolPlayer[] {
+  const existingIds = new Set([...existingPoolIds, ...collectTierPlayerIds(currentTiers.length).flat()]);
+  const toAdd = newPlayers.filter((p) => !existingIds.has(p.id));
+  return [...playersFromIds(existingPoolIds), ...toAdd];
+}
+
 async function loadTeamPool(teamId: number | "all", season: number): Promise<void> {
   currentQuery = { kind: "team", teamId, season };
+  const existingPoolIds = collectPoolPlayerIds();
   setPoolContent(
-    `<p class="pool__placeholder">${teamId === "all" ? "Loading all rosters…" : "Loading roster…"}</p>`,
+    `<p class="pool__placeholder pool__placeholder--loading">${renderSpinner("Loading", "lg", "current")}<span>${teamId === "all" ? "Loading all rosters…" : "Loading roster…"}</span></p>`,
   );
 
   let players: PoolPlayer[] = [];
@@ -503,7 +629,7 @@ async function loadTeamPool(teamId: number | "all", season: number): Promise<voi
   }
 
   rememberPlayers(players);
-  setPoolContent(renderPlayerPool(players));
+  setPoolContent(renderPlayerPool(mergeIntoPool(players, existingPoolIds)));
 }
 
 async function loadStatPool(params: StatQueryParams): Promise<void> {
@@ -519,8 +645,9 @@ async function loadStatPool(params: StatQueryParams): Promise<void> {
     season,
     limit: params.limit,
   };
+  const existingPoolIds = collectPoolPlayerIds();
   setPoolContent(
-    `<p class="pool__placeholder">${params.scope === "career" ? "Loading career leaders…" : "Loading leaders…"}</p>`,
+    `<p class="pool__placeholder pool__placeholder--loading">${renderSpinner("Loading", "lg", "current")}<span>${params.scope === "career" ? "Loading career leaders…" : "Loading leaders…"}</span></p>`,
   );
 
   let players: PoolPlayer[] = [];
@@ -547,7 +674,7 @@ async function loadStatPool(params: StatQueryParams): Promise<void> {
   }
 
   rememberPlayers(players);
-  setPoolContent(renderPlayerPool(players));
+  setPoolContent(renderPlayerPool(mergeIntoPool(players, existingPoolIds)));
 }
 
 function applyAutoTiers(strategy: AutoTierStrategy): void {
@@ -583,9 +710,7 @@ function bindQueryBuilderCallbacks(): void {
     onApplyStat: (params) => {
       void loadStatPool(params);
     },
-    onGenerateAutoTiers: (strategy) => {
-      applyAutoTiers(strategy);
-    },
+    onSearchAdd: onSearchAddPlayer,
   });
 }
 
@@ -598,7 +723,7 @@ async function openSavedList(id: string): Promise<void> {
   currentListId = list.id;
   currentTiers = list.tiers?.length ? list.tiers.map((t) => ({ ...t })) : cloneDefaultTiers();
   currentPoolFilter = emptyPoolFilterState();
-  currentStatValues = new Map();
+  currentStatValuesByCategory = new Map();
   setLastOpenedId(list.id);
 
   const poolPlayers = playersFromIds(list.poolPlayerIds);
@@ -613,8 +738,8 @@ async function openSavedList(id: string): Promise<void> {
 function renderInitError(): void {
   app.innerHTML = `
     <div class="state-banner state-banner--error" style="padding: 2rem; justify-content: center;">
-      <span>Couldn't load MLB team data. Check your connection and try again.</span>
-      <button type="button" id="init-retry" class="state-banner__retry">Retry</button>
+      <span>Couldn't load baseball team data. Check your connection and try again.</span>
+      <button type="button" id="init-retry" class="state-banner__retry">${icon("refresh")} Retry</button>
     </div>
   `;
   document.querySelector<HTMLButtonElement>("#init-retry")!.addEventListener("click", () => {
@@ -624,7 +749,7 @@ function renderInitError(): void {
 
 async function init(): Promise<void> {
   renderShell(
-    `<h2 class="query-builder__heading">Build your pool</h2><p class="query-builder__placeholder">Loading teams…</p>`,
+    `<h2 class="query-builder__heading">Add Players</h2><p class="query-builder__placeholder pool__placeholder--loading">${renderSpinner("Loading", "sm", "current")}<span>Loading teams…</span></p>`,
     `<p class="pool__placeholder">Players will appear here once a query runs.</p>`,
   );
 
@@ -645,7 +770,6 @@ async function init(): Promise<void> {
   }
   teams = fetchedTeams;
   activeCountryByPlayerId = activeCountries.byPlayerId;
-  countryFilterOptions = activeCountries.countries;
 
   const lastOpenedId = getLastOpenedId();
   if (lastOpenedId && getSavedList(lastOpenedId)) {

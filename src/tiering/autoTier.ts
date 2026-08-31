@@ -1,10 +1,11 @@
 import type { PoolPlayer } from "../types/mlb";
 import type { TierDefinition } from "../data/tiers";
+import { tierHueColor } from "../data/tierColors";
 
 export type AutoTierScheme = "sf" | "sf-plus-minus" | "custom";
 
 export type AutoTierStrategy =
-  | { kind: "interval"; size: number }
+  | { kind: "interval"; size: number; showEmptyTiers?: boolean }
   | { kind: "per-unit"; showEmptyTiers?: boolean }
   | { kind: "auto-grouping"; scheme: AutoTierScheme; customTiers?: TierDefinition[] }
   | { kind: "thresholds"; thresholds: number[] };
@@ -27,11 +28,14 @@ function parseValue(player: PoolPlayer): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
-/** Best tier (index 0) is green, worst is red, regardless of stat direction. */
+/**
+ * Best tier (index 0) is red, worst is blue, matching the default tier board's top-to-bottom
+ * sweep (and its saturation/lightness) so auto-generated tiers look the same as manual ones.
+ */
 function rankColor(index: number, total: number): string {
-  if (total <= 1) return "hsl(150, 50%, 35%)";
-  const hue = 150 - (index / (total - 1)) * 145;
-  return `hsl(${hue.toFixed(0)}, 55%, 38%)`;
+  if (total <= 1) return tierHueColor(0);
+  const hue = (index / (total - 1)) * 240;
+  return tierHueColor(hue);
 }
 
 interface Bucket {
@@ -40,14 +44,29 @@ interface Bucket {
   entries: ValuedEntry[];
 }
 
-function bucketByInterval(entries: ValuedEntry[], order: "asc" | "desc", size: number): Bucket[] {
+function bucketByInterval(
+  entries: ValuedEntry[],
+  order: "asc" | "desc",
+  size: number,
+  showEmptyTiers: boolean,
+): Bucket[] {
   const safeSize = size > 0 ? size : 1;
   const groups = new Map<number, ValuedEntry[]>();
   for (const entry of entries) {
     const key = Math.floor(entry.value / safeSize);
     (groups.get(key) ?? groups.set(key, []).get(key)!).push(entry);
   }
-  const keys = Array.from(groups.keys()).sort((a, b) => (order === "asc" ? a - b : b - a));
+  const presentKeys = Array.from(groups.keys());
+  let keys: number[];
+  if (showEmptyTiers && presentKeys.length > 0) {
+    const min = Math.min(...presentKeys);
+    const max = Math.max(...presentKeys);
+    const ascending: number[] = [];
+    for (let k = min; k <= max; k++) ascending.push(k);
+    keys = order === "asc" ? ascending : ascending.slice().reverse();
+  } else {
+    keys = presentKeys.sort((a, b) => (order === "asc" ? a - b : b - a));
+  }
   const isWhole = Number.isInteger(safeSize);
   return keys.map((key) => {
     const low = key * safeSize;
@@ -57,7 +76,7 @@ function bucketByInterval(entries: ValuedEntry[], order: "asc" | "desc", size: n
         ? `${low}-${high}`
         : `${low}`
       : `${low.toFixed(1)}-${(low + safeSize).toFixed(1)}`;
-    return { label, entries: groups.get(key)! };
+    return { label, entries: groups.get(key) ?? [] };
   });
 }
 
@@ -213,7 +232,7 @@ export function generateAutoTiers(
   let buckets: Bucket[];
   switch (strategy.kind) {
     case "interval":
-      buckets = bucketByInterval(entries, order, strategy.size);
+      buckets = bucketByInterval(entries, order, strategy.size, strategy.showEmptyTiers === true);
       break;
     case "per-unit":
       buckets = bucketByUnit(entries, order, strategy.showEmptyTiers === true);
@@ -226,7 +245,8 @@ export function generateAutoTiers(
       break;
   }
 
-  const keepEmptyTiers = strategy.kind === "per-unit" && strategy.showEmptyTiers === true;
+  const keepEmptyTiers =
+    (strategy.kind === "per-unit" || strategy.kind === "interval") && strategy.showEmptyTiers === true;
   const nonEmpty = keepEmptyTiers ? buckets : buckets.filter((b) => b.entries.length > 0);
   const tiers: TierDefinition[] = nonEmpty.map((bucket, index) => ({
     label: bucket.label,
